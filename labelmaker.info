@@ -1,0 +1,4 @@
+; $Id$
+name = LabelMaker
+description = A module that creates delivery labels based on information in library nodes.
+core = 7.x
