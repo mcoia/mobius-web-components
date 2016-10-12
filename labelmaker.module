@@ -84,6 +84,7 @@ function make_mobius_select_list ($list_name, $list_label, $select_multiple="", 
 
 }
 
+//this function makes a select list for the form below. it is used twice, once for the FROM list and once for the TO list
 function make_iowa_select_list ($list_name, $list_label, $select_multiple="", $required='') {
   $mco_last_from_id = $_COOKIE['labelFrom'];
   $institutions = fetch_iowa_institutions();
@@ -145,7 +146,6 @@ function mobius_labelmaker_form() {
   drupal_add_js('var $jq = jQuery.noConflict();', array('type' => 'inline', 'scope' => 'header', 'weight' => -10));
   drupal_add_css('/sites/all/libraries/chosen/chosen.css', 'external');
   drupal_add_js('/sites/all/libraries/chosen/chosen.jquery.js', 'external');
-  drupal_add_js('$jq(".chosen-select").chosen({search_contains: true});', array('type' => 'inline', 'scope' => 'footer', 'weight' => 5));
   drupal_add_js(drupal_get_path('module', 'labelmaker') . '/filter_options.js');
   $page = array (
     '#markup' =>
@@ -214,6 +214,5 @@ function iowa_labelmaker_form() {
 }
 
 
-//this function makes a select list for the form below. it is used twice, once for the FROM list and once for the TO list
 ?>
 

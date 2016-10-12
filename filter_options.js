@@ -25,10 +25,20 @@ function isPermitted(from_array_id) {
 }
 
 $jq(document).ready(function() {
-  $jq('#from_id').on('chosen:ready', function(evt,params) {
+  $jq(".chosen-select").chosen({search_contains: true});
+  $jq('#from_id').on('change', function(evt, params) {
     isPermitted(params['selected']);
   });
-  $jq('#from_id').on('change', function(evt, params) {
-   isPermitted(params['selected']);
-  });
+  var sel = $jq('#from_id').chosen().val();
+  if(sel.length > 0) {
+  // Force the change trigger code to filter the "TO" list on page load
+        isPermitted(sel);
+  }
+  else {
+  // Suppress the "TO" dropdown when nothing is pre selected (from cookie or otherwise)
+    $jq('#to_id_chosen').hide();
+    $jq('#from_id').on('change', function(evt, params) {
+       $jq('#to_id_chosen').show();
+    });
+  }
 });

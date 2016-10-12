@@ -10,7 +10,7 @@ $(document).ready(function(){
 var $jq = jQuery.noConflict();
 </script>';
 
-
+//this function makes a select list for the form below. it is used twice, once for the FROM list and once for the TO list
 function make_a_select_list ($list_name, $list_label, $select_multiple="", $institutions, $required='') {
   $mco_last_from_id = $_COOKIE['labelFrom'];
   
@@ -109,6 +109,5 @@ $jq(".chosen-select").chosen({search_contains: true});
 </script>
 ';
 
-//this function makes a select list for the form below. it is used twice, once for the FROM list and once for the TO list
 ?>
 
