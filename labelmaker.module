@@ -146,7 +146,7 @@ function mobius_labelmaker_form() {
   drupal_add_js('var $jq = jQuery.noConflict();', array('type' => 'inline', 'scope' => 'header', 'weight' => -10));
   drupal_add_css('/sites/all/libraries/chosen/chosen.css', 'external');
   drupal_add_js('/sites/all/libraries/chosen/chosen.jquery.js', 'external');
-  drupal_add_js(drupal_get_path('module', 'labelmaker') . '/filter_options.js');
+  // drupal_add_js(drupal_get_path('module', 'labelmaker') . '/filter_options.js');
   $page = array (
     '#markup' =>
     '<div class="messages status">If this is your first time here, please <a href="#instructions">read the instructions</a>.</div>
@@ -170,7 +170,9 @@ function mobius_labelmaker_form() {
     <p><a href="http://en.wikipedia.org/wiki/List_of_PDF_software">List of pdf software</a></p>
     <h3>Label Size</h3>
     <p>This application generates a 2x2 grid of labels on 11inx8.5in(landscape letter) paper.</p>
-    <div class="messages">If you encounter any difficulty in using this form, please <a href="mailto:help@mobiusconsortium.org?subject=Label%20maker%20issue">submit a helpdesk ticket</a>.</div>'
+    <div class="messages">If you encounter any difficulty in using this form, please <a href="mailto:help@mobiusconsortium.org?subject=Label%20maker%20issue">submit a helpdesk ticket</a>.</div>
+    <script type="text/javascript" src="sites/all/modules/labelmaker/filter_options.js"></script>
+    '
   );  // end render array
 
   return $page;
