@@ -159,6 +159,9 @@ function mobius_labelmaker_form() {
     <button class="btn btn-default" name="submit" type="submit" onClick="pageTracker._trackEvent(\'Tools\',\'LabelMaker\', \'LabelMaker Submit\');">Make Labels</button>
     </form>
     <h2><a name="instructions"></a>Instructions</h2>
+	<h3>
+	The label maker is intended for MOBIUS members and the Iowa partner libraries. If you are not a member or partner please contact your organization for help.
+	</h3>
     <ol>
     <li>Select your institution name in the first dropdown menu. The dropdown presents a search box to filter the results, and the form will remember your last selection.</li>
     <li>Select as many destination names as you wish in the second box, the "To:" section. Clicking on the field will show a list of all available libraries. Begin typing the name of the library or it\'s short code to narrow the list. Once you locate the library, clicking the name will add it to the list of libraries you are making labels for. If you would like to remove a library, click the "X" to the right of it\'s name. (The list can also be driven purely by keyboard, but that exercise is left to the reader)</li>
