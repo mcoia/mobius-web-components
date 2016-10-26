@@ -4,7 +4,7 @@
 */
 function labelmaker_menu() {
   $items['labelmaker'] = array(
-    'title' => 'MOBIUS Labelmaker',
+    'title' => 'MOBIUS Label Maker',
     'page callback' => 'mobius_labelmaker_form',
     'access arguments' => array('access content'),
   );
