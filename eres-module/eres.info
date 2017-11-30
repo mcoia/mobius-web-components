@@ -1,0 +1,4 @@
+name = E-Resources Module
+description = Custom E-Resource Database. The advantage - portable Drupal module solution and the database import for each year
+core = 7.x
+

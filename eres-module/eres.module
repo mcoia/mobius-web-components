@@ -1,0 +1,363 @@
+<?php
+
+function eres_permission() {
+  return array(
+    'access eres data' => array(
+      'title' => t('E-Resources administration'),
+      'description' => t('Perform administration tasks for my module.'),
+    ),
+  );
+}
+
+#Creating a menu access
+function eres_menu() {
+  $items['eres-list'] = array(
+    'title' => 'MOBIUS E-Resources Database',
+    'page callback' => 'get_eruser_page',
+    #'page callback' => 'test_select',
+    #'page arguments' => array(1),
+    #'access callback' => 'example_user_access',
+    'access arguments' => array('access eres data'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+function get_eruser_page(){
+    drupal_add_js(drupal_get_path('module', 'eres') .'/jquery-1.12.4.js', 'external');
+    drupal_add_js(drupal_get_path('module', 'eres') .'/jquery-ui.js', 'external');
+    drupal_add_js(drupal_get_path('module', 'eres') .'/plotly-latest.min.js', 'external');
+    drupal_add_css(drupal_get_path('module', 'eres') .'/jquery-ui.css', 'external');
+    drupal_add_css(drupal_get_path('module', 'eres') .'/graph_style.css', 'external');
+    drupal_add_js(drupal_get_path('module', 'eres') .'/sortscript.js', 'external');
+    //$header="";$rows=array();
+    $tlp=array();$mlp=array();$slp=array();$totalperc=0;$libra="";$cyear="";
+    $ctlp=array();$cmlp=array();$cslp=array();$ctotalperc=0;$coyear="";
+    $savingtotal=0.00;
+    $savingmobius=0.00;
+    $savingdiff=0.00;
+    $savingperc=0.00;
+ if( isset($_POST['year']) AND ($_POST['year']!='Select') ){
+    $year=$_POST['year']; 
+ } else {
+     $year=null;
+     
+ }
+ if( isset($_POST['compyear']) AND ($_POST['compyear']!='Select') ){
+    $compyear=$_POST['compyear']; 
+ } else {
+     $compyear=null;
+     
+ }
+ if( isset($_POST['access'])AND ($_POST['access']!=Null) ){
+    $atoken=$_POST['access'];  
+ } else {
+     $atoken=null;
+     
+ }
+    if ((( isset($year) && ($year!=null) )) AND ( !isset($compyear) && ($compyear==null) ) AND ( isset($atoken) && ($atoken!=null)))  {
+        $query=db_select('eresourcesdb','erdb');
+      
+    $query
+            ->fields('erdb', array('Name','Resource', 'List_Price'.$year,'Mobius_Price'.$year, 'Saving'.$year))
+            #->range(0,50)
+            //->groupBy ('dtc.pickuploc')
+            ->condition('erdb.passthr',$atoken,'=')
+            //->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE')
+            //->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')
+            //->condition(db_and()->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE')->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')->condition('dtc.pickupdate', $fmd2, '>=')->condition('dtc.deliverydate', $tmd2, '<=')->condition('dtc.pickuproute', 'IA-RIV', '<>'));
+            //->condition(db_and()->condition('erdb.pickuploc', '%' . db_like($sc) . '%', 'LIKE')->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')->condition('dtc.pickupdate', $fmd2, '>=')->condition('dtc.deliverydate', $tmd2, '<='));
+            ////->condition(db_and()->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE')->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE'))
+            ->orderBy('erdb.Resource');
+    $results=$query->execute();
+    $lp="List_Price".$year;
+    $mp="Mobius_Price".$year;
+    $sa="Saving".$year;
+    foreach ($results as $result) {
+        
+        
+        $rows[]=array(
+            //$result ->Name,
+            $result->Resource,
+            number_format(safeNumber($result->$lp), 2, '.', ','),
+            number_format(safeNumber($result->$mp), 2, '.', ','),
+            number_format(safeNumber($result->$sa), 2, '.', ','),
+            //number_format(round(((($result->$sa)/($result->$lp))*100),2), 2, '.', ',')
+           number_format(round(((safeDivision($result->$sa,$result->$lp))*100),2), 2, '.', ',')
+        );
+        array_push($tlp,$result->$lp);
+        array_push($mlp,$result->$mp);
+        array_push($slp,$result->$sa);
+        $libra=$result->Name;
+    }
+    
+    $totallp=number_format(array_sum($tlp), 2, '.', ',');
+    $totalmp=number_format(array_sum($mlp), 2, '.', ',');
+    $totalsa=number_format(array_sum($slp), 2, '.', ',');
+    $totalperc=number_format(round((safeDivision($totalsa,$totallp)*100),2), 2, '.', ',');
+    
+   $cyear=substr_replace($year,"-", 2, -strlen($year));
+   // $header=array(t('Resource'), t('List Price '.$cyear), t('Mobius Price '.$cyear), t('Saving '.$cyear), t('% Saving '.$cyear));
+   $header=array(t('Resource'), t('List Price'), t('MOBIUS Price'), t('Saving'), t('% Saving')); 
+   array_push($rows, array("<strong>Total:</strong>",$totallp,$totalmp,$totalsa,$totalperc));
+    } //else {
+    
+    
+    //Compare Years
+     if ((( isset($year) && ($year!=null) )) AND (( isset($compyear) && ($compyear!=null) )) AND ( isset($atoken) && ($atoken!=null)))  {
+        $query=db_select('eresourcesdb','erdb');
+      
+    $query
+            ->fields('erdb', array('Name','Resource', 'List_Price'.$year,'Mobius_Price'.$year,'Saving'.$year,'List_Price'.$compyear,'Mobius_Price'.$compyear,  'Saving'.$compyear))
+            #->range(0,50)
+            //->groupBy ('dtc.pickuploc')
+            ->condition('erdb.passthr',$atoken,'=')
+            //->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE')
+            //->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')
+            //->condition(db_and()->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE')->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')->condition('dtc.pickupdate', $fmd2, '>=')->condition('dtc.deliverydate', $tmd2, '<=')->condition('dtc.pickuproute', 'IA-RIV', '<>'));
+            //->condition(db_and()->condition('erdb.pickuploc', '%' . db_like($sc) . '%', 'LIKE')->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')->condition('dtc.pickupdate', $fmd2, '>=')->condition('dtc.deliverydate', $tmd2, '<='));
+            ////->condition(db_and()->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE')->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE'))
+            ->orderBy('erdb.Resource');
+    $results=$query->execute();
+    $lp="List_Price".$year;
+    $mp="Mobius_Price".$year;
+    $sa="Saving".$year;
+    $clp="List_Price".$compyear;
+    $cmp="Mobius_Price".$compyear;
+    $csa="Saving".$compyear;
+    foreach ($results as $result) {
+        
+        
+        $rows[]=array(
+            //$result ->Name,
+            $result->Resource,
+            number_format(safeNumber($result->$lp), 2, '.', ','),
+            
+            number_format(safeNumber($result->$mp), 2, '.', ','),
+            number_format(safeNumber($result->$sa), 2, '.', ','),
+            number_format(round(((safeDivision($result->$sa,$result->$lp))*100),2), 2, '.', ','),
+            number_format(safeNumber($result->$clp), 2, '.', ','),
+            number_format(safeNumber($result->$cmp), 2, '.', ','),
+            
+            number_format(safeNumber($result->$csa), 2, '.', ','),
+            //number_format(round(((($result->$sa)/($result->$lp))*100),2), 2, '.', ',')
+            
+            number_format(round(((safeDivision($result->$csa,$result->$clp))*100),2), 2, '.', ','),
+            //number_format(safeNumber($result->$lp), 2, '.', ',')-number_format(safeNumber($result->$clp), 2, '.', ','),
+            //number_format(safeNumber($result->$mp), 2, '.', ',')-number_format(safeNumber($result->$cmp), 2, '.', ','),
+            //number_format(safeNumber($result->$sa), 2, '.', ',')-number_format(safeNumber($result->$csa), 2, '.', ','),
+            //number_format(round(((safeDivision($result->$sa,$result->$lp))*100),2), 2, '.', ',')-number_format(round(((safeDivision($result->$csa,$result->$clp))*100),2), 2, '.', ',')
+        );
+        array_push($tlp,$result->$lp);
+        array_push($mlp,$result->$mp);
+        array_push($slp,$result->$sa);
+        array_push($ctlp,$result->$clp);
+        array_push($cmlp,$result->$cmp);
+        array_push($cslp,$result->$csa);
+        $libra=$result->Name;
+    }
+    
+    $totallp=number_format(array_sum($tlp), 2, '.', ',');
+    $totalmp=number_format(array_sum($mlp), 2, '.', ',');
+    $totalsa=number_format(array_sum($slp), 2, '.', ',');
+    $totalperc=number_format(round((safeDivision($totalsa,$totallp)*100),2), 2, '.', ',');
+    
+    $ctotallp=number_format(array_sum($ctlp), 2, '.', ',');
+    $ctotalmp=number_format(array_sum($cmlp), 2, '.', ',');
+    $ctotalsa=number_format(array_sum($cslp), 2, '.', ',');
+    $ctotalperc=number_format(round((safeDivision($ctotalsa,$ctotallp)*100),2), 2, '.', ',');
+    
+   $cyear=substr_replace($year,"-", 2, -strlen($year));
+   $coyear=substr_replace($compyear,"-", 2, -strlen($compyear));
+   // $header=array(t('Resource'), t('List Price|<br />'.$cyear),t('Mobius Price|<br />'.$cyear), t('Saving|<br />'.$cyear), t('%Saving|<br />'.$cyear),t('List Price|<br />'.$coyear), t('Mobius Price|<br />'.$coyear), t('Saving|<br />'.$coyear), t('%Saving|<br />'.$coyear),t('Difference<br />List Price|<br />'), t('Difference<br />Mobius Price|<br />'), t('Difference<br />Saving|<br />'), t('Difference<br />%Saving|<br />'));
+    $header=array(t('Resource'), t('List Price<br />'.$cyear),t('MOBIUS Price<br />'.$cyear), t('Saving<br />'.$cyear), t('%Saving<br />'.$cyear),t('List Price<br />'.$coyear), t('Mobius Price<br />'.$coyear), t('Saving<br />'.$coyear), t('%Saving<br />'.$coyear));
+   //array_push($rows, array("Total:",$totallp,$totalmp,$totalsa,$totalperc,$ctotallp,$ctotalmp,$ctotalsa,$ctotalperc,$totallp-$ctotallp,$totalmp-$ctotalmp,$totalsa-$ctotalsa,$totalperc-$ctotalperc));
+    array_push($rows, array("<b>Total:</b>",$totallp,$totalmp,$totalsa,$totalperc,$ctotallp,$ctotalmp,$ctotalsa,$ctotalperc));
+    $savingtotal=number_format(($totallp-$ctotallp), 2);
+    $savingmobius=$totalmp-$ctotalmp;
+    $savingdiff=$totalsa-$ctotalsa;
+    $savingperc=$totalperc-$ctotalperc;
+    } //Enough Compare Years
+    ?>
+<?php //excract all colums to prepare for print
+     $query4=db_select('eresourcesdb','erdb');
+      
+    $query4
+            ->fields('erdb')
+            
+           ->condition('erdb.passthr',$atoken,'=')
+           ->orderBy('erdb.Resource');
+    $results4=$query4->execute();
+$tbname="eresourcesdb";
+     $query5=db_select('INFORMATION_SCHEMA.COLUMNS','isc');
+     
+    $query5
+            ->fields('isc',array('column_name'))
+            ->condition('isc.TABLE_NAME',$tbname,'=');
+           
+    $results5=$query5->execute();
+    
+    echo "<table id='showeres' style='display:none;'>";
+    echo "<tr>";
+while ($row5 = $results5->fetchAssoc())
+{
+    //echo --->here goes the header
+    
+
+    foreach($row5 as $value5)
+    {
+        echo "<th>".$value5."</th>";
+    }
+
+    
+
+}
+echo "</tr>";
+while ($row4 = $results4->fetchAssoc())
+{
+    echo "<tr>";
+
+    foreach($row4 as $value)
+    {
+        echo "<td>".$value."</td>";
+    }
+
+    echo "</tr>";
+
+}
+
+echo "</table>";
+?>
+
+<?php
+    //}
+    $years='<option value="Select">Select Year</option><option value="1617">2016-2017</option><option value="1516">2015-2016</option><option value="1415">2014-2015</option><option value="1314">2013-2014</option><option value="1213">2012-2013</option>';
+    $fsend1= '<form method="post">Access Token: <input type="textbox" name="access" id="access" />&nbsp;';
+    $fsend3='<select name="year" style="margin-right:0%">'.$years.'</select>&nbsp;&nbsp; or Compare with: <select name="compyear" style="margin-right:0%">'.$years.'</select><br />';
+    $currentSelection="<b>Institution: </b>".$libra."<br ><b> Year selected: </b>".$cyear;
+    if ($compyear!=null){$currentSelection=$currentSelection." <b>Year to compare with: </b>".$coyear;}
+    $fsend2= '<input type="submit" name="submit" value="Submit" />';
+    //$toreturn=theme('table', array('header'=>$header, 'rows'=>$rows,'attributes' => array('class' => array('eres'),'id' => array('mytableeres'))));
+    $exportButton1="<div class='button'>
+                <a href='#' id ='exportER1' role='button'>Click To Export The Table
+                </a>
+            </div>";
+    $exportButton="<div class='button'>
+                <a href='#' id ='exportER' role='button'>Click To Export The Raw Data into a CSV File
+                </a>
+            </div>";
+    if(is_null($year)AND(is_null($atoken))){
+        
+     return "<p style='color:red'>Please Select year".$fsend1.$fsend3."<br />".$fsend2."</p>";  
+    } else {
+        
+        $graph_table='<div id="myDiv" style="width: 480px; height: 400px;"><!-- Plotly chart will be drawn inside this DIV --></div>
+  <script>
+    var trace1 = {
+  x: [\''.$cyear.'\',  \''.$coyear.'\'], 
+  y: ['.(array_sum($tlp)).', '.(array_sum($ctlp)).'], 
+  name: "List price", 
+  marker: {color: "rgb(55, 83, 109)"}, 
+  type: "bar"
+};
+
+var trace2 = {
+  x: [\''.$cyear.'\',  \''.$coyear.'\'],
+  y: ['.(array_sum($mlp)).', '.(array_sum($cmlp)).'], 
+  name: "MOBIUS price", 
+  marker: {color: "rgb(26, 118, 255)"}, 
+  type: "bar"
+};
+
+var data = [trace1, trace2];
+
+var layout = {
+  title: "MOBIUS Savings",
+  xaxis: {tickfont: {
+      size: 14, 
+      color: "rgb(107, 107, 107)"
+    }}, 
+  yaxis: {
+    title: "USD",
+    titlefont: {
+      size: 16, 
+      color: "rgb(107, 107, 107)"
+    }, 
+    tickfont: {
+      size: 14, 
+      color: "rgb(107, 107, 107)"
+    }
+  }, 
+  legend: {
+    x: 0, 
+    y: 1.2, 
+    bgcolor: "rgba(255, 255, 255, 0)",
+    bordercolor: "rgba(255, 255, 255, 0)"
+  }, 
+  barmode: "group", 
+  bargap: 0.15, 
+  bargroupgap: 0.1
+};
+
+Plotly.newPlot("myDiv", data, layout);
+  </script>
+            ';
+        $toreturn=theme('table', array('header'=>$header, 'rows'=>$rows,'attributes' => array('class' => array('eres'),'id' => array('mytableeres'))));
+    return $fsend1.$fsend3."<br />".$currentSelection."<br />".$fsend2."<br />".$graph_table."<br />".$exportButton1."<br />".$toreturn."<br />".$exportButton;
+    }
+}
+
+/*
+ * Count the number of times the delivey in days occur
+ */
+function count_array_values2($my_array, $match) 
+{ 
+    $count = 0; 
+    
+    foreach ($my_array as $key => $value) 
+    { 
+        if ($value == $match) 
+        { 
+            $count++; 
+        } 
+    } 
+    
+    return $count; 
+} 
+function count_array_values_larger2($my_array, $match) 
+{ 
+    $count = 0; 
+    
+    foreach ($my_array as $key => $value) 
+    { 
+        if ($value > $match) 
+        { 
+            $count++; 
+        } 
+    } 
+    
+    return $count; 
+}
+function safeDivision($a, $b) {         
+    if($b == 0)
+    {
+      return 0;
+    } else {
+    return $a/$b;
+    }
+}
+function safeNumber($n) {         
+    if($n == 0)
+    {
+      return 0;
+    } else {
+    return $n;
+    }
+}
+
+
+
+ 
+        
+       
+
