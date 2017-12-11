@@ -62,7 +62,7 @@ $providers = array(	'cingular' 	=> '@mobile.mycingular.com',
 					'qwest'		=> '@qwestmp.com',
 					'att' 	    => '@txt.att.net',
 					'uscellular' => '@email.uscc.net',
-					'projectfi' => '@msg.fi.google.com'
+					'projectfi' => '@msg.fi.google.com',
 					'republicwireless' => '@text.republicwireless.com');
 				
 
