@@ -1,3 +1,4 @@
+name = DataTrac
 description = Provide an access to a custom data table inside Drupal Database. The advantage - it is portable and can be integrated with any Drupal web site via this module and the database import. Linked to external libraries
 core = 7.x
 
