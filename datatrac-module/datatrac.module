@@ -13,7 +13,7 @@ function datatrac_permission()
 #Creating a menu access
 function datatrac_menu()
 {
-    $items['blabla'] = array(
+    $items['mcs-display'] = array(
         'title' => 'MOBIUS Courier Statistics',
         'page callback' => 'get_user_page',
         #'page callback' => 'test_select',
@@ -32,84 +32,56 @@ function get_user_page()
     // jquery-ui calls for images that we don't need for this basic page, so, for now, not loading
     // drupal_add_css(drupal_get_path('module', 'datatrac') . '/jquery-ui.css', 'external');
     drupal_add_js(drupal_get_path("module", "datatrac") . '/sortscript.js', 'external');
-
-    function checkWeekend($date_1,$date_2)
-    {
-        $wkdc=0;
-        $date_from = strtotime($date_2); // Convert date to a UNIX timestamp  
-        $date_to = strtotime($date_1); // Convert date to a UNIX timestamp  
-
-        // Loop from the start date to end date and output all dates inbetween  
-        for ($i=$date_from; $i<=$date_to; $i+=86400)
-        {
-            //echo date("Y-m-d", $i).'<br />';  
-            if((isWeekend(date("Y-m-d", $i)))=="weekend")
-            {
-                $wkdc=$wkdc+1;
-            }
-        }
-        return $wkdc;
-    }
-
-    function isWeekend($date4)
-    {
-        $day="";
-        $day = date('Y-m-d',strtotime($date4));
-        $holidays = array(
-            '2017-01-02',
-            '2017-01-16',
-            '2017-05-29',
-            '2017-07-04',
-            '2017-09-04',
-            '2017-11-23',
-            '2017-11-24',
-            '2016-11-24',
-            '2016-11-25',
-            '2017-12-25',
-            '2018-01-01',
-            '2016-12-26',
-            '2017-09-05',
-            '2016-07-04',
-            '2016-05-30'
-        );
-	
-        $weekDay = date('w', strtotime($date4));
-        if ((($weekDay == 0 || $weekDay == 6) )||((in_array($day,$holidays))))
-        {
-            //echo $day." Holiday";
-            return "weekend";
-        }
-        else
-        {
-            return "weekday";
-        }
-    }
     
-    function dateDifference($date_1 , $date_2)
-    {  
-        $date1 = new DateTime($date_1);
-        $date2 = new DateTime($date_2);
-        $diff = $date2->diff($date1)->format("%a");
-        return $diff;
-    }
-    
-    function getLibraryResults($sc, $tsc, $fmd2, $tmd2)
+    function getRouteResults($sc, $tsc, $fmd2, $tmd2, $trt, $frt)
     {
-        $query=db_select('dtdata','dtc');
+        // print "<p>$sc, $tsc, $fmd2, $tmd2, $trt, $frt<br /></p>";
+        $query = db_select('dtdata','dtc');
         $query
-            ->fields('dtc', array('number','pickuploc','deliveryloc','item', 'pickuploc_code','pickupdate', 'deliverydate'))
-            ->condition(db_and()->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE')->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')->condition('dtc.pickupdate', $fmd2, '>=')->condition('dtc.deliverydate', $tmd2, '<='));
-            
+            ->fields('dtc', array('number','pickuploc','deliveryloc','item', 'pickuploc_code','pickupdate', 'deliverydate','elapsedtime','elapsed_not_counted')) 
+            ->condition( 
+                db_and() 
+                ->condition('dtc.pickupdate', $fmd2, '>=')
+                ->condition('dtc.deliverydate', $tmd2, '<=')
+                ->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')
+                ->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE')
+                ->condition('dtc.deliveryloc_code', '%' . db_like($trt) . '%', 'LIKE')
+                ->condition('dtc.pickuploc_code', '%' . db_like($frt) . '%', 'LIKE')
+                ->isNotNull('dtc.elapsedtime')
+                ->isNotNull('dtc.elapsed_not_counted')
+                ->condition('dtc.active', "1", '=')
+            )
+            ->addExpression('elapsed_not_counted + elapsedtime', 'totaldays');
+        // print "<p>$query</p>";
+        
         return $query->execute();
     }
     
-    function getRouteResults($trt, $frt, $fmd2, $tmd2, $tsc, $sc)
+    function getSummaryLibraryResults($sc, $tsc, $fmd2, $tmd2, $trt, $frt, $days = null, $comparison = null)
     {
+        // print "<p>$sc, $tsc, $fmd2, $tmd2, $trt, $frt, $days = null, $comparison = null <br /></p>";
         $query=db_select('dtdata','dtc');
-        $query
-            ->fields('dtc', array('number','pickuploc','deliveryloc','item', 'pickuploc_code','pickupdate', 'deliverydate'))
-            ->condition(db_and()->condition('dtc.deliveryloc_code',  db_like($trt) . '%', 'LIKE')->condition('dtc.pickuploc_code',  db_like($frt) . '%', 'LIKE')->condition('dtc.pickupdate', $fmd2, '>=')->condition('dtc.deliverydate', $tmd2, '<=')->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE'));
-        return $query->execute();
+        
+        $dband = db_and()
+                ->condition('dtc.pickupdate', $fmd2, '>=')
+                ->condition('dtc.deliverydate', $tmd2, '<=')
+                ->condition('dtc.deliveryloc', '%' . db_like($tsc) . '%', 'LIKE')
+                ->condition('dtc.pickuploc', '%' . db_like($sc) . '%', 'LIKE')
+                ->condition('dtc.deliveryloc_code', '%' . db_like($trt) . '%', 'LIKE')
+                ->condition('dtc.pickuploc_code', '%' . db_like($frt) . '%', 'LIKE')
+                ->isNotNull('dtc.elapsedtime')
+                ->isNotNull('dtc.elapsed_not_counted')
+                ->condition('dtc.active', "1", '=');
+
+        if( isset($days) && isset($comparison) )
+        {            
+            $dband->condition('dtc.elapsedtime', "$days", $comparison);
+        }
+        
+        $query->fields('dtc', array('elapsedtime'))->condition($dband);
+        
+        // print "<p>$query</p>";
+        return $query->countQuery()->execute()->fetchField();
     }
     
     function getLibraryDropdownArray($type)
@@ -117,7 +89,8 @@ function get_user_page()
         $ret = array();
         $query=db_select('dtdata','lbt');
         $query
-            ->fields('lbt', array($type.'loc_code',$type.'loc'))        
+            ->fields('lbt', array($type.'loc_code',$type.'loc'))
+            ->condition('lbt.active', "1", '=')
             ->groupBy ('lbt.'.$type.'loc')
             ->orderBy('lbt.'.$type.'loc');
         $res = $query->execute();
@@ -126,11 +99,14 @@ function get_user_page()
         {
             $senco='';
             $senco=str_replace("- ","-",$row1[$type.'loc']);
-            $ret[$row1[$type.'loc']] = substr($senco,2);
+            $ret[$row1[$type.'loc']] = $senco;
         }
-        $topOption=array('Select'=>'Select To All');
+        $type == 'pickup' ? $conjunction = "From" : $conjunction = "To";
+        
+        $topOption=array('Select'=>"Select $conjunction All");
         return $topOption+$ret;
     }
+
     
 /* BEGIN CODE EXECUTION PAGE LOAD */
     if( isset($_POST['fromLib']) AND ($_POST['fromLib']!='Select') )
@@ -142,6 +118,8 @@ function get_user_page()
         $sc=null;
         $rows=array();
     }
+    
+    // print_r($_POST);
     
     if( isset($_POST['toLib'])AND ($_POST['toLib']!='Select') )
     {
@@ -189,7 +167,7 @@ function get_user_page()
     }
     else
     {
-        $frt=null;
+        $frt='';
         $rows=array();
     }
     
@@ -199,24 +177,16 @@ function get_user_page()
     }
     else
     {
-        $trt=null;
+        $trt='';
     }
  
     $wLib="";
     
-    if((( isset($sc) && ($sc!=null) ) OR ( isset($tsc) && ($tsc!=null))) )
+    if( isset($sc) || isset($tsc) || isset($frt) || isset($trt) )
     {
-        $results = getLibraryResults($sc, $tsc, $fmd2, $tmd2);
         $rows=array();
-    }
-    
-    //Add check for Groups if selection fromRoute or toRoute selected will override individual library selection;
-    if(( isset($frt) && ($frt!=null) ) OR ( isset($trt) && ($trt!=null)) )
-    {  
-        unset($results);
-        unset($rows);
-        $rows=array();
-        $results = getRouteResults($trt, $frt, $fmd2, $tmd2, $tsc, $sc);
+        // print "Going to get the data<br />";
+        $results = getRouteResults($sc, $tsc, $fmd2, $tmd2, $trt, $frt);
     }
 
     $deliveryLibraryArrayMenu = getLibraryDropdownArray( 'delivery' );
@@ -224,98 +194,82 @@ function get_user_page()
     
     
     $header=array(t('NUM'),t('Pickup Location'), t('Delivery Location'), t('Barcode Code'), t('Delivery Date'), t('Pickup Date'), t('Dates in Transit'), t('Weekend/ Holiday days'), t('Business days'));
-    $headerDvr=array(t('Business days'),t('Same Day'), t('Next Day'), t('Three Days'), t('Four days'), t('More than Four days'));
+    $headerDvr=array(t('Business days'),t('Same Day'), t('Next Day'), t('Two days'), t('Three Days'), t('Four+ days'));
     $headerOvr=array(t('From'),t('To'), t('Total Bags'), t('Avg Days in Transit'), t('Avg Business Days'));
     
     $rowsOvr=array();
     $ddaysrows=array();
-    $cnt=0;$tdit=0;$tabdt=0;
     $arrayDays=array();
-    $delLoc=array();$dLoc=array();
-    $ddelLoc=array();$new = array();
-    if((( isset($sc) && ($sc!=null) ) OR ( isset($tsc) && ($tsc!=null)) ) OR (( isset($frt) && ($frt!=null) ) OR ( isset($trt) && ($trt!=null)) ))
+    $delLoc=array();
+    $ddelLoc=array();
+    if( $results )
     {
+        $totalBags = getSummaryLibraryResults($sc, $tsc, $fmd2, $tmd2, $trt, $frt);
+        $daysInTransit=0;
+        $businessDaysInTransit=0;
+        $sameDay  = getSummaryLibraryResults($sc, $tsc, $fmd2, $tmd2, $trt, $frt, 0, '=');
+        $nextDay  = getSummaryLibraryResults($sc, $tsc, $fmd2, $tmd2, $trt, $frt, 1, '=');
+        $twoDay   = getSummaryLibraryResults($sc, $tsc, $fmd2, $tmd2, $trt, $frt, 2, '=');
+        $threeDay = getSummaryLibraryResults($sc, $tsc, $fmd2, $tmd2, $trt, $frt, 3, '=');
+        $fourDay  = getSummaryLibraryResults($sc, $tsc, $fmd2, $tmd2, $trt, $frt, 3, '>');
+        
         foreach ($results as $result)
         {
-            $cnt=$cnt+1;
-            //$dif=date_diff($result->pickupdate, $result->deliverydate);
-            $dit=dateDifference($result->deliverydate,$result->pickupdate);
-            $chkwnd=checkWeekend($result->deliverydate,$result->pickupdate);
-
             $rows[]=array(
-                $result ->number,
-                substr($result->pickuploc,2),
-                //strtoupper($result->deliveryloc),
+                $result->number,
+                $result->pickuploc,
                 $result->deliveryloc,
                 $result->item,
                 $result->deliverydate,
                 $result->pickupdate,
-                //date_format((strtotime($result->deliverydate)-strtotime($result->pickupdate)),'%a')
-                //dateDifference($result->deliverydate,$result->pickupdate)
-                $dit+1,
-                $chkwnd,
-                ($dit+1)-$chkwnd
+                $result->totaldays,
+                $result->elapsed_not_counted,
+                $result->elapsedtime
             );
-            $tdit=$tdit+($dit+1);
-            $tabdt=$tabdt+($dit+1-$chkwnd);
-            array_push($arrayDays,(($dit+1)-$chkwnd));
+            
+            $daysInTransit+=$result->totaldays;
+            $businessDaysInTransit+=$result->elapsedtime;
+            
+            $libValue = $result->deliveryloc;
             if(is_null($tsc))
             {
-                $wLib="From ".substr($sc,2)." To ".$tsc.":";
-                //array_push($delLoc,strtoupper($result->deliveryloc));
-                array_push($delLoc,$result->deliveryloc);
+                $wLib="From ".$sc." To ".$tsc.":";
             }
             else
             {
                 $wLib="To ".$tsc." From ".$sc.":";
-                array_push($delLoc,substr($result->pickuploc,2));
+                $libValue = $result->pickuploc;
             }
-        
+            isset($ddelLoc[$libValue]) ? $ddelLoc[$libValue]++ : $ddelLoc[$libValue] = 1;
         }
-        
-        foreach ($delLoc as $delLib)
-        {
-            $ddelLoc[$delLib]=count_array_values($delLoc,$delLib);
-        }
-        
-        if ($cnt==0)
+
+        if ($totalBags==0)
         {
             $adit=0;
             $abdt=0;
         }
         else
         {
-            $adit=round(($tdit/$cnt),2);
-            $abdt=round(($tabdt/$cnt),2); 
+            $adit=round(($daysInTransit/$totalBags),2);
+            $abdt=round(($businessDaysInTransit/$totalBags),2); 
         }
         
-        if(is_null($sc)){$sc=null;} else{ $sc=substr($sc, 2);};
+        if(is_null($sc)){$sc=null;} else{ $sc=$sc; };
         if(is_null($sc)){$sc="All Libraries";};
         if(is_null($tsc)){$tsc="All Libraries";};
-        if($frt){$sc=$frt;};
-        if($trt){$tsc=$trt;};
-        $rowsOvr[]=array(t($sc),t($tsc), t($cnt), t($adit), t($abdt));
-        //$rows[]=array(t(''),t('Total bags:'),$cnt,t('From ').$sc, t('To ').$tsc,t('Avarage Days in Transit'),$adit,t(''),$abdt);
-        //print_r($arrayDays);
-        //echo "\n"."One day ".count_array_values($arrayDays, 1). " time(s)."."\n"; 
-        //echo "\n"."Two days ".count_array_values($arrayDays, 2). " time(s)."."\n"; 
-        //echo "\n"."Three day ".count_array_values ($arrayDays, 3). " time(s)."."\n"; 
-        //echo "\n"."More than three days ".count_array_values_larger($arrayDays, 3). " time(s)."."\n";
-        $ddaysrows[]=array(t('<strong>Date Range</strong><br />From&nbsp'.$fmd.'<br />To&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp'.$tmd),t(count_array_values($arrayDays, 1)),t(count_array_values($arrayDays, 2)),t(count_array_values($arrayDays, 3)),t(count_array_values($arrayDays, 4)),t(count_array_values_larger($arrayDays, 4)));
-        //array_push($ddaysrows,t(''),count_array_values($arrayDays, 1),count_array_values($arrayDays, 2),count_array_values($arrayDays, 3),count_array_values_larger($arrayDays, 3));
-        //echo "\n"."Five day ".count_array_values($arrayDays, 5). " time(s)."."\n"; 
-        
-                
-
-
+        if( $frt!='' ){$sc=$frt;};
+        if( $trt!='' ){$tsc=$trt;};
+        $rowsOvr[]=array(t($sc),t($tsc), t($totalBags), t($adit), t($abdt));
+        $ddaysrows[]=array(t('<strong>Date Range</strong><br />From&nbsp'.$fmd.'<br />To&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp'.$tmd),t($sameDay),t($nextDay),t($twoDay),t($threeDay),t($fourDay));
     }
         
            
-$headerdloc=array(t($wLib), t('Total Bags'));
-$delRow=array();
-while (list($key, $val) = each($ddelLoc)) {
-    $delRow[]=array($key,$val);
-}
+    $headerdloc=array(t($wLib), t('Total Bags'));
+    $delRow = array();
+    while (list($key, $val) = each($ddelLoc))
+    {
+        $delRow[]=array($key,$val);
+    }
       
 $about='<div class="container">
   
@@ -345,17 +299,14 @@ When your report is generated, you will see pickup and delivery location informa
             .'<option value="RTE 5">RTE 5 Terminal</option><option value="RTE 6">RTE 6 Terminal</option><option value="RTE 7">RTE 7 Terminal</option><option value="RTE 8">RTE 8 Terminal</option>'
             .'<option value="RTE 9">RTE 9 Terminal</option><option value="RTE 10">RTE 10 Terminal</option><option value="RTE 11">RTE 11 Terminal</option><option value="RTE 12">RTE 12 Terminal</option>'
             */;
-    $fsend1= '<form method="post">Begin Date: <input type="textbox" name="dateFrom" id="datepicker" />&nbsp;End Date: <input type="textbox" name="dateTo" id="datepicker2" /><br /><br />';
+    $fsend1= '<form method="post">Begin Date: <input type="textbox" name="dateFrom" id="datepicker" value="'.$fmd.'" />&nbsp;End Date: <input type="textbox" name="dateTo" id="datepicker2" value="'.$tmd.'" /><br /><br />';
     $fsend3='<select name="fromRoute" style="margin-right:22%">'.$terminals.'</select>';
     $fsend4='<select name="toRoute" style="margin-right:15%">'.$terminals.'</select>';
     $fsend2= '<input type="submit" name="submit" value="Submit" /></div>';
     $toreturnOvr=theme('table', array('header'=>$headerOvr, 'rows'=>$rowsOvr));
-    if(( isset($frt) && ($frt!=null) ) OR ( isset($trt) && ($trt!=null)) ){
-            $toreturndLoc="";
-        } else {
-            $toreturndLoc=theme('table', array('header'=>$headerdloc, 'rows'=>$delRow,'attributes' => array('class' => array('sortable'))));
-    }
-    
+
+    $toreturndLoc=theme('table', array('header'=>$headerdloc, 'rows'=>$delRow,'attributes' => array('class' => array('sortable'))));
+
     $toreturnDvr=theme('table', array('header'=>$headerDvr, 'rows'=>$ddaysrows));
     $toreturn1=theme('table', array('header'=>$header, 'rows'=>$rows,'attributes' => array('class' => array('sortable'),'id' => array('mytable'))));
     
@@ -374,37 +325,4 @@ When your report is generated, you will see pickup and delivery location informa
 
 
 }
-
-/*
- * Count the number of times the delivey in days occur
- */
-function count_array_values($my_array, $match) 
-{ 
-    $count = 0; 
-    
-    foreach ($my_array as $key => $value) 
-    { 
-        if ($value == $match) 
-        { 
-            $count++; 
-        } 
-    } 
-    
-    return $count; 
-} 
-function count_array_values_larger($my_array, $match) 
-{ 
-    $count = 0; 
-    
-    foreach ($my_array as $key => $value) 
-    { 
-        if ($value > $match) 
-        { 
-            $count++; 
-        } 
-    } 
-    
-    return $count; 
-}
-
 

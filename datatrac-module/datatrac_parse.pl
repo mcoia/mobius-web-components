@@ -32,14 +32,17 @@ if(!$log)
     print "Please specify a drupal config logfile \n";
     exit;
 }
- 
+
 $log = new Loghandler($log);
+
+$log->truncFile("");
 
 $drupalconfig = new Loghandler($drupalconfig);
 
 setupDB();
+updateOldData() if @ARGV[3];
+exit if @ARGV[3];
 
-$log->truncFile("");
 
 our $pidfile = "/tmp/datatrac_parse.pl.pid";
 
@@ -86,7 +89,7 @@ undef $writePid;
             or die "Cannot use CSV: ".Text::CSV->error_diag ();
         open my $fh, "<:encoding(utf8)", $file or die "$file: $!";
 # For reference, these are the live columns
-# 'pickuploc','deliveryloc','item', 'pickuproute','pickupdate', 'deliverydate'))
+# 'pickuploc','deliveryloc','item', 'pickuploc_code','pickupdate', 'deliverydate'))
 # We are going to have to hard code the expected data per column because the column headers contain duplicates
         my $rownum = 0;
         my $success = 0;
@@ -96,11 +99,11 @@ undef $writePid;
         1 => 'pickupdate',
         2 => 'pickuploc',
         3 => 'pickupdriver',
-        4 => 'pickuproute',
+        4 => 'pickuploc_code',
         5 => 'deliverydate',
         6 => 'deliveryloc',
         7 => 'deliverydriver',
-        8 => 'deliveryroute'        
+        8 => 'deliveryloc_code'        
         );
         my %spliters = ('pickupdate'=>1,'deliverydate'=>1);
         
@@ -116,8 +119,8 @@ undef $writePid;
             push @order, $key;
             $sanitycheckcolumnnums++
         }
-        $queryInserts .= "elapsedtime)\nVALUES (\n";
-        $queryByHand .= "elapsedtime)\nVALUES (\n";
+        $queryInserts .= "elapsedtime,elapsed_not_counted)\nVALUES \n";
+        $queryByHand .= "elapsedtime,elapsed_not_counted)\nVALUES \n";
         
         while ( my $row = $csv->getline( $fh ) )
         {
@@ -135,6 +138,7 @@ undef $writePid;
                 my $startDate;
                 my $endDate;
                 my $elapsedDays;
+                my $ignoredDays;
                 my $valid = 1;
                 my $pickuploc;
                 my $deliveryloc;
@@ -184,16 +188,16 @@ undef $writePid;
                     push (@thisLineVals, @rowarray[$colpos]);
                     # $log->addLine(Dumper(\@thisLineVals));
                     
-                    # do not import lines where the institution is mangled. It needs to be at least 22 characters and not more than 23
-                    $valid = 0 if( ($colmap{$colpos} eq 'item') && (length(@rowarray[$colpos]) < 22) || (length(@rowarray[$colpos]) > 23) );
-                    $log->addLine("Found invalid item column on line $rownum data = ".@rowarray[$colpos]) if( ($colmap{$colpos} eq 'item') && ((length(@rowarray[$colpos]) < 22) || (length(@rowarray[$colpos]) > 23)) );
+                    # do not import lines where the institution is mangled. It needs to be at least 20 characters and not more than 23
+                    $valid = 0 if( ($colmap{$colpos} eq 'item') && (length(@rowarray[$colpos]) < 20) || (length(@rowarray[$colpos]) > 23) );
+                    $log->addLine("Found invalid item column on line $rownum data = ".@rowarray[$colpos]) if( ($colmap{$colpos} eq 'item') && ((length(@rowarray[$colpos]) < 20) || (length(@rowarray[$colpos]) > 23)) );
                     
                     # gather up the special vars
-                    $pickuploc = @rowarray[$colpos] if($colmap{$colpos} eq 'pickuploc');
-                    $deliveryloc = @rowarray[$colpos] if($colmap{$colpos} eq 'deliveryloc');
+                    $pickuploc = @rowarray[$colpos] if($colmap{$colpos} eq 'pickuploc_code');
+                    $deliveryloc = @rowarray[$colpos] if($colmap{$colpos} eq 'deliveryloc_code');
                 }
                 
-                $elapsedDays = figureElapseDeliveryTime($startDate, $endDate);
+                ($elapsedDays,  $ignoredDays) = figureElapseDeliveryTime($startDate, $endDate, $deliveryloc);
                 
                 # do not import lines where the start and end institutions are equal
                 $valid = 0 if($pickuploc eq $deliveryloc);
@@ -202,9 +206,10 @@ undef $writePid;
 
                 if($valid && $elapsedDays)
                 {
-                    $thisLineInsert .= '?';
-                    $thisLineInsertByHand.="'$elapsedDays'";
+                    $thisLineInsert .= '?,?';
+                    $thisLineInsertByHand.="'$elapsedDays','$ignoredDays'";
                     push (@thisLineVals, $elapsedDays);
+                    push (@thisLineVals, $ignoredDays);
                     $queryInserts .= '(' . $thisLineInsert . "),\n";
                     $queryByHand .= '(' . $thisLineInsertByHand . "),\n";
                     foreach(@thisLineVals)
@@ -221,8 +226,8 @@ undef $writePid;
          
         }
         
-        $queryInserts = substr($queryInserts,0,-2).")" if $success;
-        $queryByHand = substr($queryByHand,0,-2).")" if $success;
+        $queryInserts = substr($queryInserts,0,-2) if $success;
+        $queryByHand = substr($queryByHand,0,-2) if $success;
         
         # Handle the case when there is only one row inserted
         if($success == 1)
@@ -238,9 +243,28 @@ undef $writePid;
         close $fh;
         $log->addLine("Importing $success / $rownum");
         
-        # $dbHandler->updateWithParameters($queryInserts,\@queryValues);
-
-        # exit;
+        $dbHandler->updateWithParameters($queryInserts,\@queryValues);
+        
+        # Clean out duplicate barcodes
+        my $queryClean = "DELETE from dtdata where
+        number in(
+        select thenumber from 
+        (
+            select min(number) as thenumber,item from dtdata
+            WHERE
+            item IN
+            (
+            select item FROM
+            (
+            select item,count(*) from dtdata group by 1 having count(*)>1
+            ) as dups
+            )
+            group by 2
+        ) as dupclear
+        )
+        ";
+        $dbHandler->update($queryClean);
+        exit;
     }
    sleep 5;
 # }
@@ -250,17 +274,90 @@ sub figureElapseDeliveryTime
     my $startDate = shift;
     my $endDate = shift;
     my $destCode = shift;
+    return 0 if(!$startDate || !$endDate || !$destCode);
+    
+    $destCode = lc $destCode;
     my $dateWalk = $startDate->clone();
     my $daysToSubtract = 0;
+    
+    my %dowTranslate = (
+            'Monday'    => 1,
+            'Tuesday'   => 2,
+            'Wednesday' => 3,
+            'Thursday'  => 4,
+            'Friday'    => 5,
+            'Saturday'  => 6,
+            'Sunday'    => 7
+            );
+    
+    # Figure out which of the days of the week this destination library DOES NOT receive courier
+    my $query = '
+            SELECT (select GROUP_CONCAT(distinct field_weekday_value) from field_data_field_weekday where entity_id=node.nid group by entity_id )
+            FROM 
+            node node
+            WHERE (( (node.status = \'1\') AND (node.type IN  (\'courier_weekly_delivery\')) ))
+            and
+            node.nid in(
+            select entity_id from field_data_field_library_courier_code fdflcc
+            where trim(lower(field_library_courier_code_value)) = 
+            trim(\''.$destCode.'\')
+            -- trim(lower(\' IA-NE-600\'))
+            );
+        ';
+    my @results = @{$dbHandler->query($query)};
 
+    my %skipWeekDays = ();
+    my %skipHolidays = ();
+    foreach(@results)
+    {
+        foreach(@{$_})
+        {
+            my @sp = split(',',$_);
+            foreach(@sp)
+            {
+                $skipWeekDays{ $dowTranslate{$_} } = 1;
+            }
+        }
+    }
+    # print "skipweekdays = ".Dumper(\%skipWeekDays)."\n";
+    
+    # Collect possible holidays during this period
+    $query = '
+           SELECT CAST( field_data_field_the_closed_date.field_the_closed_date_value AS DATE) AS field_data_field_the_closed_date_field_the_closed_date_value
+            FROM 
+            node node
+            LEFT JOIN field_data_field_the_closed_date field_data_field_the_closed_date ON node.nid = field_data_field_the_closed_date.entity_id AND field_data_field_the_closed_date.entity_type = \'node\'
+            WHERE (( (node.status = \'1\') AND (node.type IN  (\'library_closed_dates\')) ))
+            and
+            CAST( field_data_field_the_closed_date.field_the_closed_date_value AS DATE) between CAST( \''.$startDate.'\' AS DATE) and CAST( \''.$endDate.'\' AS DATE);
+        ';
+    @results = @{$dbHandler->query($query)};
+    
+    foreach(@results)
+    {
+        foreach(@{$_})
+        {
+            $skipHolidays{$_} = 1;
+        }
+    }
+    
     while($dateWalk < $endDate)
     {
-        # ignore weekends
-        $daysToSubtract++ if($dateWalk->day_of_week() =~ m/[67]/);
-        
-        ## TODO: include library closed dates from database
-        
-        
+        # ignore weekends        
+        if($dateWalk->day_of_week() =~ m/[67]/)
+        {
+            $daysToSubtract++;
+        }
+        # ignore days that the destination library does not recieve courier
+        elsif($skipWeekDays{$dateWalk->day_of_week()})
+        {
+            $daysToSubtract++;
+        }
+        # ignore days that the whole delivery system is shut down
+        elsif($skipHolidays{$dateWalk->strftime( '%Y-%m-%d' )})
+        {
+            $daysToSubtract++;
+        }
         $dateWalk = $dateWalk->add( days => 1 );
     }
 
@@ -268,28 +365,73 @@ sub figureElapseDeliveryTime
 
     # print "startdate = $startDate\n";
     # print "endDate = $endDate\n";
-    my $difference = $endDate - $startDate;                                
+    my $difference = $endDate - $startDate;
     #my $format = DateTime::Format::Duration->new(pattern => '%m %e %H %M %S');
     my $format = DateTime::Format::Duration->new(pattern => '%e');
     my $duration =  $format->format_duration($difference);
-    my $elapsedDays = $duration - $daysToSubtract;
-    # print "$elapsedDays\n";
+    my $elapsedDays = $duration - $daysToSubtract;    
+        
+    # Now we need to catch a scenario where we calculated 0 days but the pickup and delivery dates are not equal
+    # print "elapsed = $elapsedDays\n$startDate\n$endDate\n" if( $elapsedDays==0 && ( $startDate != $endDate ) );
+    $daysToSubtract-- if( $elapsedDays==0 && ( $startDate != $endDate ) );
+    $elapsedDays = 1 if( $elapsedDays==0 && ( $startDate != $endDate ) );
     
-# SELECT node.title AS node_title, node.nid AS nid, node.changed AS node_changed, node.created AS node_created, 'node' AS field_data_field_library_courier_code_node_entity_type, (select GROUP_CONCAT(distinct field_weekday_value) from field_data_field_weekday where entity_id=node.nid group by entity_id )
-# FROM 
-# node node
-# WHERE (( (node.status = '1') AND (node.type IN  ('courier_weekly_delivery')) ))
-#
-#
+    
+    # print "$elapsedDays\n";
 
-
-    return $elapsedDays;
+    return ($elapsedDays, $daysToSubtract);
     
 }
 
 sub updateOldData
 {
+    my $elapsedDays;
+    my $ignoredDays;
+    my $startDate;
+    my $endDate;
     
+    my $query = "SELECT number,deliveryloc_code,pickupdate,deliverydate from dtdata";
+    my @results = @{$dbHandler->query($query)};
+    my $total = $#results;
+    my $i = 0;
+    foreach(@results)
+    {
+        my @line = @{$_};
+        my $valid = 1;
+        
+        @line[2] =~ s/(\d*)[\/\\\-](\d*)[\/\\\-](\d*)\s.*/$3-$1-$2/;
+        @line[3] =~ s/(\d*)[\/\\\-](\d*)[\/\\\-](\d*)\s.*/$3-$1-$2/;
+        my ($y,$m,$d) = @line[2] =~ /^([0-9]{4})\-([0-9]{1,2})\-([0-9]{1,2})\z/;
+        if($y && $m && $d)
+        {
+            $startDate = DateTime->new( year => $y, month => $m, day => $d );
+        }
+        else
+        {
+            $log->addLine("Line @line[2] contained an invalid date - skipping");
+            $valid = 0;
+        }
+        my ($y,$m,$d) = @line[3] =~ /^([0-9]{4})\-([0-9]{1,2})\-([0-9]{1,2})\z/;
+        if($y && $m && $d)
+        {
+            $endDate = DateTime->new( year => $y, month => $m, day => $d );
+        }
+        else
+        {
+            $log->addLine("Line @line[3] contained an invalid date - skipping");
+            $valid = 0;
+        }
+        
+        if($valid)
+        {
+            ($elapsedDays,  $ignoredDays) = figureElapseDeliveryTime($startDate, $endDate, @line[1]);
+            $query = "UPDATE dtdata SET elapsedtime=?,elapsed_not_counted=? where number=?";
+            my @arr = ($elapsedDays, $ignoredDays, @line[0]);            
+            $dbHandler->updateWithParameters($query,\@arr);
+        }
+        print "$i / $total\n" if ($i % 100 == 0 );
+        $i++;
+    }
 }
 
 sub checkFileReady
