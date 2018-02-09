@@ -97,9 +97,7 @@ function get_user_page()
         
         while($row1 = $res->fetchAssoc())
         {
-            $senco='';
-            $senco=str_replace("- ","-",$row1[$type.'loc']);
-            $ret[$row1[$type.'loc']] = $senco;
+            $ret[$row1[$type.'loc']] = $row1[$type.'loc'];
         }
         $type == 'pickup' ? $conjunction = "From" : $conjunction = "To";
         
@@ -273,18 +271,17 @@ function get_user_page()
       
 $about='<div class="container">
   
-  <button type="button" class="btn btn-info" data-toggle="collapse" data-target="#demo">About STAT module</button>
+  <button type="button" class="btn btn-info" data-toggle="collapse" data-target="#demo">Click here for more information</button>
 <br /><br />
   <div id="demo" class="collapse">
    <br /> MOBIUS Courier Statistics Database: What You Need to Know<br /><br />
-
-The Courier Statistics Database provides historical data for courier activity that can be searched and exported according to your needs. Data begins on July 1, 2016, and is updated after the first of every month. <u>Statistics for the current month are <b>not</b> included in the database.</u><!--Data begins on June 1, 2017, and is current for the last whole month.  Statistics since then are not included in the database, updates will be posted after 1 st day of the current month.--> Statistics for March, April and May of 2017 are not in the database. During that time the courier stat was transferred to Xlerator. If you are looking for a bag that is currently outstanding or a transaction that is less than a month old, please contact <a href="mailto:courier@mobiusconsortium.org">courier@mobiusconsorium.org</a>
+The Courier Statistics Database provides historical data for courier activity that can be searched and exported according to your needs. Data begins on July 1, 2016, and is updated after the first of every month. <u>Statistics for the current month are <b>not</b> included in the database.</u> Statistics for March, April and May of 2017 are not in the database as during that time STAT changed vendors from Datatrac to Xcelerator. If you are looking for a bag that is currently outstanding or a transaction that is less than a month old, please contact <a href="mailto:courier@mobiusconsortium.org">courier@mobiusconsortium.org</a>
 <br /><br />
 How to Search:<br /> <br />
-Specify your chosen date range in the indicated fields, then choose your start and end points in the dropdowns below. You may search by library or by route (terminal), and you may set your institution as either the sending or receiving library. Once the desired date range and your choice of origin and endpoint locations are set, clicking Submit will generate the report. 
+Specify your chosen date range in the indicated fields, then choose your start and end points in the dropdowns below. You may search by library, (terminal entries are for a geographic area), and you may set your institution as either the sending or receiving library. Once the desired date range and your choice of origin and endpoint locations are set, clicking Submit will generate the report.
 <br /><br />
 Reading and Exporting Reports:<br /><br />
-When your report is generated, you will see pickup and delivery location information, the barcode for each bag put in transit, pickup and delivery dates, and transit time information. The database takes into account weekends and holidays (when the courier isn’t running), so along with the total Days in Transit figure, you will also see a breakdown of the number of business days versus the number of weekend/holiday days for the period of time that the courier handled your materials. To export your data to a CSV file, click on the link above the data table display. 
+When your report is generated, you will see pickup and delivery location information, the barcode for each bag put in transit, pickup and delivery dates, and transit time information. The database takes into account weekends and holidays (when the courier isn’t running), so along with the total Days in Transit figure, you will also see a breakdown of the number of bisness days versus the number of excluded days for the period of time that the courier handled your materials. Excluded days include weekends, holidays, and non-service days for libraries with less than five day a week delivery. To export your data to a CSV file, click on the link above the data table display.
 <br /><br />
   </div>
 </div>';
@@ -293,12 +290,8 @@ When your report is generated, you will see pickup and delivery location informa
             . '<option value="MO-SO">MO SO Terminal</option><option value="MO-SW">MO SW Terminal</option>'
             .'<option value="IA-EA">IA EA Terminal</option><option value="IA-NO">IA NO Terminal</option>'
             . '<option value="IA-NW">IA NW Terminal</option><option value="IA-RIV">IA RIV Terminal</option><option value="IA-SE">IA SE Terminal</option>'
-            . '<option value="IA-SO">IA SO Terminal</option><option value="IA-SW">IA SW Terminal</option>'
-            /*
-    .'<option value="RTE 1">RTE 1 Terminal</option><option value="RTE 2">RTE 2 Terminal</option><option value="RTE 3">RTE 3 Terminal</option><option value="RTE 4">RTE 4 Terminal</option>'
-            .'<option value="RTE 5">RTE 5 Terminal</option><option value="RTE 6">RTE 6 Terminal</option><option value="RTE 7">RTE 7 Terminal</option><option value="RTE 8">RTE 8 Terminal</option>'
-            .'<option value="RTE 9">RTE 9 Terminal</option><option value="RTE 10">RTE 10 Terminal</option><option value="RTE 11">RTE 11 Terminal</option><option value="RTE 12">RTE 12 Terminal</option>'
-            */;
+            . '<option value="IA-SO">IA SO Terminal</option><option value="IA-SW">IA SW Terminal</option>';
+            
     $fsend1= '<form method="post">Begin Date: <input type="textbox" name="dateFrom" id="datepicker" value="'.$fmd.'" />&nbsp;End Date: <input type="textbox" name="dateTo" id="datepicker2" value="'.$tmd.'" /><br /><br />';
     $fsend3='<select name="fromRoute" style="margin-right:22%">'.$terminals.'</select>';
     $fsend4='<select name="toRoute" style="margin-right:15%">'.$terminals.'</select>';

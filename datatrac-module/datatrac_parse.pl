@@ -35,8 +35,6 @@ if(!$log)
 
 $log = new Loghandler($log);
 
-$log->truncFile("");
-
 $drupalconfig = new Loghandler($drupalconfig);
 
 setupDB();
@@ -51,6 +49,7 @@ if (-e $pidfile)
     #Check the processes and see if there is a copy running:
     my $thisScriptName = $0;
     my $numberOfNonMeProcesses = scalar grep /$thisScriptName/, (split /\n/, `ps -aef`);
+    print "$thisScriptName has $numberOfNonMeProcesses running\n";
     # The number of processes running in the grep statement will include this process,
     # if there is another one the count will be greater than 1
     if($numberOfNonMeProcesses > 1)
@@ -65,12 +64,13 @@ if (-e $pidfile)
     }
 }
 
+$log->truncFile("");
 my $writePid = new Loghandler($pidfile);
-$writePid->addLine("running");
+$writePid->truncFile("running");
 undef $writePid;
 
-# while(1)
-# {
+while(1)
+{
 
     my @files;
     @files = @{dirtrav(\@files, $dirRoot)};
@@ -150,6 +150,7 @@ undef $writePid;
                 foreach(@order)
                 {
                     my $colpos = $_;
+                    # print "reading $colpos\n";
                     $thisLineInsert .= '?,';
                     # Trim whitespace off the data
                     @rowarray[$colpos] =~ s/^[\s\t]*(.*)/$1/;
@@ -189,7 +190,7 @@ undef $writePid;
                     # $log->addLine(Dumper(\@thisLineVals));
                     
                     # do not import lines where the institution is mangled. It needs to be at least 20 characters and not more than 23
-                    $valid = 0 if( ($colmap{$colpos} eq 'item') && (length(@rowarray[$colpos]) < 20) || (length(@rowarray[$colpos]) > 23) );
+                    $valid = 0                                                                            if( ($colmap{$colpos} eq 'item') && ((length(@rowarray[$colpos]) < 20) || (length(@rowarray[$colpos]) > 23)) );
                     $log->addLine("Found invalid item column on line $rownum data = ".@rowarray[$colpos]) if( ($colmap{$colpos} eq 'item') && ((length(@rowarray[$colpos]) < 20) || (length(@rowarray[$colpos]) > 23)) );
                     
                     # gather up the special vars
@@ -203,7 +204,7 @@ undef $writePid;
                 $valid = 0 if($pickuploc eq $deliveryloc);
                 $log->addLine("Found equal institutions line $rownum $pickuploc = $deliveryloc") if($pickuploc eq $deliveryloc);
                 
-
+                # print "Valid = $valid and days = $elapsedDays\n";
                 if($valid && $elapsedDays)
                 {
                     $thisLineInsert .= '?,?';
@@ -222,8 +223,6 @@ undef $writePid;
                 undef @thisLineVals;
             }
             $rownum++;
-        # }
-         
         }
         
         $queryInserts = substr($queryInserts,0,-2) if $success;
@@ -264,10 +263,11 @@ undef $writePid;
         )
         ";
         $dbHandler->update($queryClean);
-        exit;
+        # delete the file so we don't read it again
+        unlink $file;
     }
    sleep 5;
-# }
+}
 
 sub figureElapseDeliveryTime
 {
