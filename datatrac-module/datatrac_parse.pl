@@ -37,6 +37,9 @@ $log = new Loghandler($log);
 
 $drupalconfig = new Loghandler($drupalconfig);
 
+# Logic is handled in crontab - just run dude
+unlink $pidFile;
+
 setupDB();
 updateOldData() if @ARGV[3];
 exit if @ARGV[3];
@@ -79,7 +82,7 @@ while(1)
     {
         my $file = $_;
         my $path;
-       
+        my %translates = %{getTranslationCodes()};
         my @sp = split('/',$file);
        
         $path=substr($file,0,( (length(@sp[$#sp]))*-1) );
@@ -204,9 +207,29 @@ while(1)
                 $valid = 0 if($pickuploc eq $deliveryloc);
                 $log->addLine("Found equal institutions line $rownum $pickuploc = $deliveryloc") if($pickuploc eq $deliveryloc);
                 
+                
                 # print "Valid = $valid and days = $elapsedDays\n";
                 if($valid && $elapsedDays)
                 {
+                    
+                    # Translate and convert the string version of the library name from our "normalized" version
+                    my $l = 0;
+                    foreach(@order)
+                    {
+                        my $colpos = $_;
+                        if($colmap{$colpos} eq 'pickuploc')
+                        {
+                            $log->addLine("Changing ".@thisLineVals[$l]." into ".$translates{$pickuploc}) if (@thisLineVals[$l] ne $translates{$pickuploc});
+                            @thisLineVals[$l] = $translates{$pickuploc} if($translates{$pickuploc});
+                        }
+                        elsif($colmap{$colpos} eq 'deliveryloc')
+                        {
+                            $log->addLine("Changing ".@thisLineVals[$l]." into ".$translates{$deliveryloc}) if (@thisLineVals[$l] ne $translates{$deliveryloc});
+                            @thisLineVals[$l] = $translates{$deliveryloc} if($translates{$deliveryloc});
+                        }
+                        $l++;
+                    }
+                    
                     $thisLineInsert .= '?,?';
                     $thisLineInsertByHand.="'$elapsedDays','$ignoredDays'";
                     push (@thisLineVals, $elapsedDays);
@@ -267,6 +290,27 @@ while(1)
         unlink $file;
     }
    sleep 5;
+}
+
+sub getTranslationCodes
+{
+    my %ret = ();
+    my $query = '
+select n.title,fdflcc.field_library_courier_code_value from field_data_field_library_courier_code fdflcc,
+node n
+where
+fdflcc.entity_id=n.nid
+    ';
+    
+    my @results = @{$dbHandler->query($query)};
+    
+    foreach(@results)
+    {
+        my @row = @{$_};
+        $ret{@row[1]} = @row[0];
+    }
+    
+    return \%ret;
 }
 
 sub figureElapseDeliveryTime
