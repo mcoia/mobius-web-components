@@ -505,12 +505,14 @@ function PrintFrom($toAddress, $fromAddress, $_PosX)
 	$this->SetFont('Arial', '', 8);
 	$this->Code128($this->GetX(), $this->GetY(), $shipmentID, 50, 10);
 	$this->SetXY($this->GetX(), $this->GetY()+10);
-    	$this->Cell(50, 4, "BagID: " . $shipmentID, 0, 0, "C");	
+	$this->Cell(50, 4, "BagID: " . $shipmentID, 0, 0, "C");
 	$this->Rotate(0);
 	$barcodeMargin = 14;
 	#$this->Cell($_PosX+30, $_PosX+20, "BagID: ". $shipmentID, 0, 1, 'C');
-  	$this->SetXY($this->GetX(), $this->GetY()-10);	
+	$this->SetXY($this->GetX(), $this->GetY()-10);
   }
+  $margin = 0;
+
   // Title font: Arial bold 15
   $this->SetFont('Arial', 'B', 12);
   $this->SetX($_PosX+$margin+$barcodeMargin);
@@ -522,6 +524,7 @@ function PrintFrom($toAddress, $fromAddress, $_PosX)
 
   // From Address - just using location name and city/state now
   $margin = $_PosX;
+
   $lineHeight = 3.5;
   if ($fromAddress['locName']) {
     $this->Cell($margin+$barcodeMargin);
