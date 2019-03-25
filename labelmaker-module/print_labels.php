@@ -500,7 +500,6 @@ function PrintFrom($toAddress, $fromAddress, $_PosX)
       $this->Cell(235, 14, $toAddress['sortCode'], 0, 1, "C");
       $this->SetY($curY);
       $this->setQuadrant($_PosX);
-      // $this->Image(DRUPAL_ROOT . '/' . drupal_get_path('module', 'labelmaker') . '/MOBIUS_logo.gif', $this->GetX()+85, $this->GetY(), 45);
   } else {
     // All labels get the mobius logo except the MALA labels (Henry)
     $this->Image(DRUPAL_ROOT . '/' . drupal_get_path('module', 'labelmaker') . '/MOBIUS_logo.gif', $this->GetX()+85, $this->GetY(), 45);
