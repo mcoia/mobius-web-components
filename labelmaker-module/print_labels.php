@@ -40,7 +40,7 @@ require_once './fpdf16/fpdf.php';
 require_once './qrcode/qrcode.class.php';
 require_once './fpdf16/rotation.php';
 
-define('DRUPAL_ROOT', '/drupal');
+define('DRUPAL_ROOT', '/production');
 require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
@@ -494,7 +494,17 @@ function PrintFrom($toAddress, $fromAddress, $_PosX)
   // in the case that there is missing data
   $pad = 0;
 
-  $this->Image(DRUPAL_ROOT . '/' . drupal_get_path('module', 'labelmaker') . '/MOBIUS_logo.gif', $this->GetX()+85, $this->GetY(), 45);
+  if(preg_match('/MALA/', $toAddress['interSort'])) {
+      $this->SetFont('Arial', 'B', 22);
+      $curY = $this->GetY();
+      $this->Cell(235, 14, $toAddress['sortCode'], 0, 1, "C");
+      $this->SetY($curY);
+      $this->setQuadrant($_PosX);
+      // $this->Image(DRUPAL_ROOT . '/' . drupal_get_path('module', 'labelmaker') . '/MOBIUS_logo.gif', $this->GetX()+85, $this->GetY(), 45);
+  } else {
+    // All labels get the mobius logo except the MALA labels (Henry)
+    $this->Image(DRUPAL_ROOT . '/' . drupal_get_path('module', 'labelmaker') . '/MOBIUS_logo.gif', $this->GetX()+85, $this->GetY(), 45);
+  }
 
 
   // "From" section title
@@ -562,11 +572,7 @@ function PrintTo($toAddress, $fromAddress, $_PosX)
 
   // Get the cursor all the way to the right. We will set Cells at 50% width exactly
   // then center the From Title;
-  if ($_PosX >= 142.5) {
-    $this->SetX(142.5);
-  } else {
-    $this->SetX(0);
-  }
+  $this->setQuadrant($_PosX);
 
   if (preg_match('/MOB|IOWA/', $toAddress['interSort']) && preg_match('/MOB|IOWA/',$fromAddress['interSort'])) {
     $shipmentID = strtoupper($toAddress['statCode'] . '_' . uniqid());
@@ -579,33 +585,27 @@ function PrintTo($toAddress, $fromAddress, $_PosX)
     $this->SetXY($this->GetX()+30, $this->GetY()+5);
     $this->Cell(102.5, 12, $toAddress['statCode'], 0, 1, 'C');
     //$this->SetXY($this->GetX(), $this->GetY());
-    if ($_PosX >= 142.5) {
-      $this->SetX(142.5);
-    } else {
-      $this->SetX(0);
-    }
+    
+    $this->setQuadrant($_PosX);
+    
     $this->SetFont('Arial', 'B', 10);
     $this->SetXY($this->GetX()+40, $this->GetY()+2);
     if($toAddress['locCode']) {
       $tmpCode = " ({$toAddress['locCode']})";
     }
     $this->Cell(102.5, 8, $toAddress['locName'] . $tmpCode, 0, 1, 'C');
-    if ($_PosX >= 142.5) {
-      $this->SetX(142.5);
-    } else {
-      $this->SetX(0);
-    }
+    
+    $this->setQuadrant($_PosX);
+    
     $this->SetXY($this->GetX()+40, $this->GetY()-2);
     $this->Cell(102.5, 8, $shipmentID, 0, 1, 'C');
   } elseif (preg_match('/MOB|IOWA/', $toAddress['interSort']) && preg_match('/MOB|IOWA/',$fromAddress['interSort'])) {
     $this->SetFont('Arial', 'B', 42);
     $this->Cell(142.5, 12, $toAddress['interSort'].':'.$toAddress['statCode'], 0, 1, 'C');
     $this->SetFont('Arial', 'B', 10);
-  } elseif ($fromAddress['interSort'] == 'TAE' && preg_match('/MOB|IOWA|MALA|CLC/', $toAddress['interSort'])) {
+  } elseif ($fromAddress['interSort'] == 'TAE' && preg_match('/MOB|IOWA|CLC/', $toAddress['interSort'])) {
     $this->SetFont('Arial', 'B', 30);
-    if ($toAddress['interSort'] == 'MALA') {
-     $this->Cell(142.5, 12, $toAddress['interSort'].'/'.$toAddress['sortCode'], 0, 1, 'C');
-    } elseif ($toAddress['interSort'] == 'CLC') {
+    if ($toAddress['interSort'] == 'CLC') {
      $this->Cell(142.5, 12, $toAddress['interSort'].': '.$toAddress['sortCode'], 0, 1, 'C');
     } else {
      $this->Cell(142.5, 12, $toAddress['interSort'].':'.$toAddress['statCode'], 0, 1, 'C');
@@ -613,8 +613,12 @@ function PrintTo($toAddress, $fromAddress, $_PosX)
     $this->SetFont('Arial', 'B', 10);
   } elseif ($toAddress['interSort'] == 'CLC') {
     $this->Cell(142.5, 12, $toAddress['interSort'].': '.$toAddress['sortCode'], 0, 1, 'C');
-  } elseif ($toAddress['interSort'] == 'MALA') {
-    $this->Cell(142.5, 12, $toAddress['interSort'].'/'.$toAddress['sortCode'], 0, 1, 'C');
+  } elseif(preg_match('/MALA/', $toAddress['interSort'])) {
+      // A hack to get this to align with the address below
+      while(strlen($toAddress['statCode']) < 15) {
+          $toAddress['statCode'] = $toAddress['statCode']." ";
+      }
+      $this->Cell(142.5, 12, $toAddress['statCode'], 0, 1, 'C');
   } elseif ($toAddress['interSort'] && $toAddress['locCode']) {
     $this->Cell(142.5, 12, $toAddress['interSort'].': '.$toAddress['locCode'].'/'.$toAddress['sortCode'], 0, 1, 'C');
   } elseif ($toAddress['interSort'] && $toAddress['sortCode']) {
@@ -640,11 +644,8 @@ function PrintTo($toAddress, $fromAddress, $_PosX)
     $barcode = $this->Code128($this->GetX(), $this->GetY(), $shipmentID, 82.5, 20);
 
     //$this->SetXY($this->GetX(), $this->GetY()+30);
-    if ($_PosX >= 142.5) {
-      $this->SetX(142.5);
-    } else {
-      $this->SetX(0);
-    }
+    $this->setQuadrant($_PosX);
+    
   } else {
     //To Address
     $margin = $_PosX+35;
@@ -698,6 +699,15 @@ function PrintTo($toAddress, $fromAddress, $_PosX)
 
   //Line break
   $this->Ln(2);
+}
+
+function setQuadrant($posX)
+{
+    if ($posX >= 142.5) {
+      $this->SetX(142.5);
+    } else {
+      $this->SetX(0);
+    }
 }
 
 function PrintSortCode($sortCode, $_PosX)
