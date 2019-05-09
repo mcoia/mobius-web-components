@@ -173,6 +173,8 @@ function mobius_labelmaker_form() {
     <p><a href="http://en.wikipedia.org/wiki/List_of_PDF_software">List of pdf software</a></p>
     <h3>Label Size</h3>
     <p>This application generates a 2x2 grid of labels on 11inx8.5in(landscape letter) paper.</p>
+    <h3>Editing and Updating the MOBIUS Label Maker</h3>
+    <p><a href="https://mobiusconsortium.org/node/1364">Detailed information</a> on how library information is formatted in the label maker and instructons for requesting changes. </p> 
     <div class="messages">If you encounter any difficulty in using this form, please <a href="mailto:help@mobiusconsortium.org?subject=Label%20maker%20issue">submit a helpdesk ticket</a>.</div>
     <script type="text/javascript" src="sites/all/modules/labelmaker/filter_options.js"></script>
     '
@@ -212,6 +214,8 @@ function iowa_labelmaker_form() {
     <p><a href="http://en.wikipedia.org/wiki/List_of_PDF_software">List of pdf software</a></p>
     <h3>Label Size</h3>
     <p>This application generates a 2x2 grid of labels on 11inx8.5in(landscape letter) paper.</p>
+    <h3>Editing and Updating the MOBIUS Label Maker</h3>
+    <p><a href="https://mobiusconsortium.org/node/1364">Detailed information</a> on how library information is formatted in the label maker and instructons for requesting changes. </p> 
     <div class="messages">If you encounter any difficulty in using this form, please <a href="mailto:help@mobiusconsortium.org?subject=Label%20maker%20issue">submit a helpdesk ticket</a>.</div>'
   );  // end render array
 
