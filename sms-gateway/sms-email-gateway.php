@@ -1,17 +1,5 @@
 <?PHP
 
-//Function to go out and grab the html of a specified URL
-//You must have curl enabled on your server for this to work
-function get_url_contents($url){
-	$crl = curl_init();
-	$timeout = 30;
-	curl_setopt ($crl, CURLOPT_URL,$url);
-	curl_setopt ($crl, CURLOPT_RETURNTRANSFER, 1);
-	curl_setopt ($crl, CURLOPT_CONNECTTIMEOUT, $timeout);
-	$ret = curl_exec($crl);
-	curl_close($crl);
-	return $ret;
-}
 
 //form variables
 $phoneNumber 	= trim($_GET['number']);
@@ -22,7 +10,7 @@ $item 			= $_GET['item']; //parse the item
 $itemArray 		= explode("|", $item);
 $location 		= trim($itemArray[0]);
 
-$scope			= trim($_GET['scope']);
+$title = html_entity_decode(trim($_GET['title']));
 
 //strip strange characters not handled by Safari from location
 $location 		= preg_replace('/[^A-Za-z0-9\-_\.\s]/', "", $location);
@@ -32,14 +20,6 @@ $callNumber 	= trim($itemArray[1]);
 $item 			= "\nLoc: ".$location."\nCall: ".$callNumber;
 //echo "document.write('Debug: ".$location." ".$callNumber."');";
 
-//Change this url to your own catalog
-$url = "http://$scope".".searchmobius.org/record=".$bib;
-
-//Use the bib number to get the title information for the item from the catalog
-$catalogItemPage = get_url_contents($url);
-preg_match('/fieldtag=t(.*)fieldtag=p/s', $catalogItemPage, $matches); //get the right secton of code
-preg_match('/<strong>([^:]*).*<\/strong>/s', $matches[1], $matches2); //grab the title text before the colon
-$title = trim($matches2[1]);
 
 //verify that the call number and location are listed on the page for extra security
 //if(!strstr($catalogItemPage, $callNumber) || !strstr($catalogItemPage, $location)){
@@ -57,13 +37,13 @@ $providers = array(	'cingular' 	=> '@mobile.mycingular.com',
              		'sprint' 	=> '@messaging.sprintpcs.com',
              		'nextel' 	=> '@messaging.nextel.com',
              		'verizon'	=> '@vtext.com',
-					'northwest' => '@mynwmcell.com',
-					'cricket'	=> '@mms.mycricket.com',
-					'qwest'		=> '@qwestmp.com',
-					'att' 	    => '@txt.att.net',
-					'uscellular' => '@email.uscc.net',
-					'projectfi' => '@msg.fi.google.com',
-					'republicwireless' => '@text.republicwireless.com');
+			'northwest' => '@mynwmcell.com',
+			'cricket'	=> '@mms.mycricket.com',
+			'qwest'		=> '@qwestmp.com',
+			'att' 	    => '@txt.att.net',
+			'uscellular' => '@email.uscc.net',
+			'projectfi' => '@msg.fi.google.com',
+			'republicwireless' => '@text.republicwireless.com');
 				
 
 //remove any non-numeric characters from the phone number
