@@ -1,0 +1,163 @@
+<?php
+/**
+* Implements hook_menu().
+*/
+function iowacourier_menu() {
+  $items['iowacourier'] = array(
+    'title' => 'IOWA Courier',
+    'page callback' => 'mobius_iowacourier_display',
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+function mobius_iowacourier_fetch_mobius_institutions() {
+  $query = 'SELECT * FROM label_maker_nodes ORDER BY locName';
+  $result = db_query($query);
+  $rows = $result->fetchAllAssoc('id');
+  return $rows;
+}
+function mobius_iowacourier_fetch_iowa_institutions() {
+  $query = 'SELECT * FROM label_maker_nodes where interSort =\'IOWA\' order by locName';
+  $result = db_query($query);
+  $rows = $result->fetchAllAssoc('id');
+  return $rows;
+}
+
+function mobius_iowacourier_getColumns()
+{
+    $ret = array();
+    $query = 'SELECT * FROM iowa_courier_staging where id = -1';
+    $result = db_query($query);
+    $rows = $result->fetchAllAssoc('id');
+    foreach(json_decode(json_encode($rows), True) as $r)
+    {
+        foreach ($r as $key => $value)
+        {
+            $ret[$key] = $value ? $value : $key;
+        }
+    }
+    return $ret;
+}
+
+function mobius_iowacourier_generateHTMLTable()
+{
+    $colMap = mobius_iowacourier_getColumns();
+    $ret = "<table id='iowa_courier_display_table'><thead><tr>";
+    $colOrder = "";
+    
+    # Hard coded display columns. The rest are javascript displayed
+    $displayOrder = array("library_name","silo_code","city","hub","hub_city","day","route","stat_courier_pick_up_schedule","delivery_code");
+    
+    $militaryColumns = array(
+        "stat_courier_pick_up_schedule",
+    );
+    
+    $javascriptColumns = array(
+        "library_name" => "IOWACourierLibraryClick"
+    );
+    
+    foreach($displayOrder as $col)
+    {
+        $ret .= "<th>".$colMap[$col]."</th>";
+        $colOrder.= $col.",";
+    }
+    foreach($colMap as $key => $value)
+    {
+        if(!in_array($key,$displayOrder))
+        {
+            $colOrder.= $key.",";
+        }
+    }
+    $colOrder = substr($colOrder,0,-1);
+    
+    $ret .= "</tr></thead><tbody>";
+    $metadata = array();
+    $query = "SELECT $colOrder FROM iowa_courier_staging where id > -1";
+    $result = db_query($query);
+    $rows = $result->fetchAllAssoc('id');
+    $loop = 0;
+    foreach(json_decode(json_encode($rows), True) as $libraryRow)
+    {
+        $ret .= "<tr>";
+        
+        $metadata[$libraryRow["id"]] = array();
+        foreach ($libraryRow as $key => $value)
+        {
+            $finalValue = in_array($key,$militaryColumns) ? mobius_iowacourier_onvertFromMilitary($value) : $value;
+            if(in_array($key,$displayOrder))
+            {
+                $ret .="<td libid='".$libraryRow["id"]."'>";
+                $ending = "";
+                if( isset($javascriptColumns[$key]) )
+                {
+                    $ret.="<a href='#' onclick='".$javascriptColumns[$key]."(event)'>";
+                    $ending = "</a>";
+                }
+                $ret .="$finalValue$ending</td>";
+            }
+            $metadata[$libraryRow["id"]][$key] = $finalValue;
+        }
+        $ret .= "</tr>";
+        $loop++;
+        if($loop > 30) { break; }
+    }
+    $ret .= "</tbody></table>
+    <div style='display: none'>";
+    foreach($metadata as $key => $value)
+    {
+        $ret.="<div id='iowacourier-metadata-$key'>\n";
+        foreach($value as $int => $intval)
+        {
+            $ret.="<span metaname = '$int' title ='".$colMap[$int]."'>$intval</span>\n";        
+        }
+        $ret.="</div>\n";
+    }
+    $ret.="</div>";
+    return $ret;
+}
+
+function mobius_iowacourier_onvertFromMilitary($val)
+{
+    $ret = $val;
+    $am = "A.M.";
+    if($ret > 1200)
+    {
+        $ret -= 1200;
+        $am = "P.M.";
+    }
+    
+    return $ret;
+}
+
+
+function mobius_iowacourier_display() {
+  drupal_page_is_cacheable($allow_caching = FALSE);
+  
+  $varColDump =  mobius_iowacourier_generateHTMLTable();
+  $page = array (
+    '#markup' =>
+    '<h1>TESTING</h1>
+    '.$varColDump.'
+    <script type="text/javascript">
+    jQuery(document).ready( function () {
+        
+        
+
+    });
+    function IOWACourierLibraryClick(event)
+    {
+        var targetElement = event.srcElement;
+        alert("you rang?" + targetElement);
+    }
+    
+    </script>
+    '
+  );  // end render array
+
+  return $page;
+}
+
+
+?>
+

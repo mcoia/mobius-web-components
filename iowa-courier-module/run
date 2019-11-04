@@ -1,0 +1,3 @@
+#!/bin/bash
+
+./ia_shares_import.pl --dir-root /home/ma/iowa_courier_data_import/courier_data/ --log /home/ma/iowa_courier_data_import/courier_log.log --drupal-config /production/sites/default/settings.php
