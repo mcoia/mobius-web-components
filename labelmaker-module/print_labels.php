@@ -500,8 +500,11 @@ function PrintFrom($toAddress, $fromAddress, $_PosX)
       $this->Cell(235, 14, $toAddress['sortCode'], 0, 1, "C");
       $this->SetY($curY);
       $this->setQuadrant($_PosX);
-      // $this->Image(DRUPAL_ROOT . '/' . drupal_get_path('module', 'labelmaker') . '/MOBIUS_logo.gif', $this->GetX()+85, $this->GetY(), 45);
-  } else {
+  }
+  elseif( preg_match('/IASHR/', $toAddress['interSort'])  &&  preg_match('/IASHR/', $fromAddress['interSort']) ) {
+      $this->Image(DRUPAL_ROOT . '/' . drupal_get_path('module', 'labelmaker') . '/ia_shares_logo.gif', $this->GetX()+65, $this->GetY(), 65);
+  }
+  else {
     // All labels get the mobius logo except the MALA labels (Henry)
     $this->Image(DRUPAL_ROOT . '/' . drupal_get_path('module', 'labelmaker') . '/MOBIUS_logo.gif', $this->GetX()+85, $this->GetY(), 45);
   }
@@ -509,17 +512,21 @@ function PrintFrom($toAddress, $fromAddress, $_PosX)
 
   // "From" section title
   if (!preg_match('/MOB|IOWA/', $toAddress['interSort']) || !preg_match('/MOB|IOWA/', $fromAddress['interSort'])) {
-	// frombar
-	$shipmentID = uniqid();
-	$this->Rotate(90, $this->GetX()+25,$this->GetY()+25);
-	$this->SetFont('Arial', '', 8);
-	$this->Code128($this->GetX(), $this->GetY(), $shipmentID, 50, 10);
-	$this->SetXY($this->GetX(), $this->GetY()+10);
-	$this->Cell(50, 4, "BagID: " . $shipmentID, 0, 0, "C");
-	$this->Rotate(0);
-	$barcodeMargin = 14;
-	#$this->Cell($_PosX+30, $_PosX+20, "BagID: ". $shipmentID, 0, 1, 'C');
-	$this->SetXY($this->GetX(), $this->GetY()-10);
+      
+      // That barcode is omitted for IASHR TO -> IASHR
+    if ( !preg_match('/IASHR/', $toAddress['interSort']) && !preg_match('/IASHR/', $fromAddress['interSort'])) {
+        // frombar
+        $shipmentID = uniqid();
+        $this->Rotate(90, $this->GetX()+25,$this->GetY()+25);
+        $this->SetFont('Arial', '', 8);
+        $this->Code128($this->GetX(), $this->GetY(), $shipmentID, 50, 10);
+        $this->SetXY($this->GetX(), $this->GetY()+10);
+        $this->Cell(50, 4, "BagID: " . $shipmentID, 0, 0, "C");
+        $this->Rotate(0);
+        $barcodeMargin = 14;
+        #$this->Cell($_PosX+30, $_PosX+20, "BagID: ". $shipmentID, 0, 1, 'C');
+        $this->SetXY($this->GetX(), $this->GetY()-10);
+    }
   }
   $margin = 0;
 
@@ -619,6 +626,12 @@ function PrintTo($toAddress, $fromAddress, $_PosX)
           $toAddress['statCode'] = $toAddress['statCode']." ";
       }
       $this->Cell(142.5, 12, $toAddress['statCode'], 0, 1, 'C');
+  } elseif(preg_match('/IASHR/', $toAddress['interSort']) && preg_match('/IASHR/', $fromAddress['interSort']) ) {
+      
+      $this->SetFont('Arial', 'B', 42);
+      $this->Cell(144, 12, $toAddress['statCode'], 0, 1, 'C');
+      $this->SetFont('Arial', 'B', 10);
+    
   } elseif ($toAddress['interSort'] && $toAddress['locCode']) {
     $this->Cell(142.5, 12, $toAddress['interSort'].': '.$toAddress['locCode'].'/'.$toAddress['sortCode'], 0, 1, 'C');
   } elseif ($toAddress['interSort'] && $toAddress['sortCode']) {
@@ -697,6 +710,33 @@ function PrintTo($toAddress, $fromAddress, $_PosX)
     }
   }
 
+  // Put the IASHR blurb at the bottom
+  if(preg_match('/IASHR/', $toAddress['interSort']) && preg_match('/IASHR/', $fromAddress['interSort']) ) {
+      $marginOffLeft = 5;
+      $blurbFontSize = 8;
+      $this->Ln(2);
+      // Line 1
+      $this->SetFont('Arial', 'I', $blurbFontSize);
+      $this->Cell($_PosX + $marginOffLeft);
+      $this->Cell(44, $lineHeight, "\"IA Shares is made possible by the ", 0, 0,'L');
+      $this->SetFont('Arial', 'BI', $blurbFontSize);
+      $this->Cell(56, $lineHeight, "Institute of Museum and Library Services", 0, 0,'L');
+      $this->SetFont('Arial', 'I', $blurbFontSize);
+      $this->Cell(6, $lineHeight, " under", 0, 1,'L');
+      
+      // Line 2
+      $this->Cell($_PosX + $marginOffLeft);      
+      $this->SetFont('Arial', 'I', $blurbFontSize);
+      $this->Cell(83, $lineHeight, "the provisions of the Library Services and Technology Act as administered by the", 0, 1,'L');
+      
+      // Line 3
+      $this->Cell($_PosX + $marginOffLeft);      
+      $this->SetFont('Arial', 'IB', $blurbFontSize);
+      $this->Cell(45, $lineHeight, "State Library of Iowa.\"", 0, 1,'L');
+      
+      // Reset
+      $this->SetFont('Arial', 'B', 10);
+  }
   //Line break
   $this->Ln(2);
 }
