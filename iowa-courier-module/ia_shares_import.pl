@@ -63,6 +63,14 @@ our %csvColMap = (
 # But you need to know the "friendly database" converted column name from the knack which are overriden by %knackColMap 
 our %friendlyColOverride = (
     'silo_code' => 'SILO Code',
+    'hub' => 'Hub Number',
+    'hub_city' => 'Hub City',
+    'day' => 'Delivery Day',
+    'route' => 'Route Number',
+    'stat_courier_pick_up_schedule' => 'Pickup Time',
+    'delivery_code' => 'Delivery Code',
+    'number_of_bags' => 'Number of bags',
+    'physical_address' => 'Delivery Address'
 );
 
 
@@ -204,6 +212,7 @@ sub updateProduction
             if($knackID)  ## Need the Knack ID for further processing
             {
                 my $answer = scrapeLibraryData($knackID);
+                $log->addLine(Dumper($answer));
                 updateColumnsWithKnackData($answer,$ID) if($answer);
             }
         }

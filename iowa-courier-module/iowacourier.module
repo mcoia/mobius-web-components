@@ -51,10 +51,39 @@ function mobius_iowacourier_generateHTMLTable()
     
     $militaryColumns = array(
         "stat_courier_pick_up_schedule",
+        "monday_hours",
+        "tuesday_hours",
+        "wednesday_hours",
+        "thursday_hours",
+        "friday_hours",
+        "saturday_hours",
+        "sunday_hours"        
     );
     
     $javascriptColumns = array(
         "library_name" => "IOWACourierLibraryClick"
+    );
+    
+    $javascriptRemoveColumns = array(
+        "contact_card",
+        "id",
+        "hours",
+        "num",
+        "nid",
+        "changed",
+        "size_code",
+        "knackid",
+    );
+    
+    $javascriptUIDetails = array(
+        "groups" =>
+            array(
+            "Library Info" => array("mailing_address","physical_location_street_address","library_telephone_number","library_email_address","library_telephone_number","fax_number","web_address_url","monday_hours","tuesday_hours","wednesday_hours","thursday_hours","friday_hours","saturday_hours","sunday_hours"),
+            "Courier Info" => array("silo_code","delivery_code","physical_address","hub","route","hub_city","day","stat_courier_pick_up_schedule","number_of_bags"),
+            "Contacts" => array("directoradministrator","director_email_address","assistant_director","assistant_director_email_address","ill_contact","ill_email_address","ill_phone_number","ill_fax_number","childrens_services_librarian","childrens_services_email_address","teen_services_librarian","teen_services_librarian_email"),
+            ),
+        "group_order" => array("Library Info","Courier Info","Contacts"),
+        "title_field" => "library_name"
     );
     
     foreach($displayOrder as $col)
@@ -76,7 +105,6 @@ function mobius_iowacourier_generateHTMLTable()
     $query = "SELECT $colOrder FROM iowa_courier_staging where id > -1";
     $result = db_query($query);
     $rows = $result->fetchAllAssoc('id');
-    $loop = 0;
     foreach(json_decode(json_encode($rows), True) as $libraryRow)
     {
         $ret .= "<tr>";
@@ -84,14 +112,14 @@ function mobius_iowacourier_generateHTMLTable()
         $metadata[$libraryRow["id"]] = array();
         foreach ($libraryRow as $key => $value)
         {
-            $finalValue = in_array($key,$militaryColumns) ? mobius_iowacourier_onvertFromMilitary($value) : $value;
+            $finalValue = in_array($key,$militaryColumns) ? mobius_iowacourier_figureMilitary($value) : $value;
             if(in_array($key,$displayOrder))
             {
                 $ret .="<td libid='".$libraryRow["id"]."'>";
                 $ending = "";
                 if( isset($javascriptColumns[$key]) )
                 {
-                    $ret.="<a href='#' onclick='".$javascriptColumns[$key]."(event)'>";
+                    $ret.="<a class='".$javascriptColumns[$key]."' onclick ='".$javascriptColumns[$key]."(this)' href='#' >";
                     $ending = "</a>";
                 }
                 $ret .="$finalValue$ending</td>";
@@ -99,8 +127,6 @@ function mobius_iowacourier_generateHTMLTable()
             $metadata[$libraryRow["id"]][$key] = $finalValue;
         }
         $ret .= "</tr>";
-        $loop++;
-        if($loop > 30) { break; }
     }
     $ret .= "</tbody></table>
     <div style='display: none'>";
@@ -109,26 +135,118 @@ function mobius_iowacourier_generateHTMLTable()
         $ret.="<div id='iowacourier-metadata-$key'>\n";
         foreach($value as $int => $intval)
         {
-            $ret.="<span metaname = '$int' title ='".$colMap[$int]."'>$intval</span>\n";        
+            if(!(in_array($int,$javascriptRemoveColumns)))
+            {
+                $ret.="<span metaname = '$int' title ='".mobius_iowacourier_escape($colMap[$int])."'>$intval</span>\n";        
+            }
         }
         $ret.="</div>\n";
     }
-    $ret.="</div>";
+    $ret.="</div><script type='text/javascript'>
+<!--//--><![CDATA[//><!--
+    var displayGrouping = JSON.parse('{ ";
+    foreach($javascriptUIDetails["groups"] as $groupName => $list)
+    {
+        $ret.="\"$groupName\" : [";
+        foreach($list as $item)
+        {
+            $ret.="\"$item\",";
+        }
+        $ret = substr($ret,0,-1);
+        $ret .= "],";
+    }
+    $ret = substr($ret,0,-1);
+    $ret.="}');
+    var displayGroupingOrder = JSON.parse('[ ";
+    foreach($javascriptUIDetails["group_order"] as $groupName)
+    {
+        $ret.="\"$groupName\",";
+    }
+    $ret = substr($ret,0,-1);
+    $ret.="]');
+    var displayTitleField = '".$javascriptUIDetails["title_field"]."';
+    //--><!]]>
+    </script>";
     return $ret;
 }
 
-function mobius_iowacourier_onvertFromMilitary($val)
+function mobius_iowacourier_escape($val)
 {
-    $ret = $val;
-    $am = "A.M.";
-    if($ret > 1200)
+    return str_replace("'", "", $val);
+}
+
+function mobius_iowacourier_figureMilitary($val)
+{
+    $val = trim($val);
+    if(strlen($val) < 3)
     {
-        $ret -= 1200;
-        $am = "P.M.";
+        return $val;
     }
+    
+    $each = array($val);
+    if( (strpos($val, ' ') !== false)) // There could be a time "range" expressed with a space
+    {
+        $each[0] = explode(' ',$val);
+    }
+    $ret = "";
+    foreach($each as $inter => $frag)
+    {
+        if(is_array($frag))
+        {
+            foreach($frag as $int => $low)
+            {
+                if(strpos($low, '-') !== false)
+                {
+                    $pair = explode('-',$low);
+                    $ret .=  mobius_iowacourier_convertFromMilitary($pair[0]);
+                    $ret .= "-" . mobius_iowacourier_convertFromMilitary($pair[1]);
+                }
+                else
+                {
+                    $ret .=  mobius_iowacourier_convertFromMilitary($low);
+                }
+                $ret .=  " , ";
+            }
+            $ret = substr($ret,0,-3);
+        }
+        else
+        {
+            $pair = explode('-',$frag);
+            foreach($pair as $key => $value)
+            {
+                $ret .= "-" .  mobius_iowacourier_convertFromMilitary($value);
+            }
+            $ret = substr($ret,1);
+        }
+    }
+    
     
     return $ret;
 }
+
+function mobius_iowacourier_convertFromMilitary($val)
+{
+    $val = trim($val);
+    $am = "am";
+    if($val > 1200)
+    {
+        $am = "pm";
+    }
+    if($val > 1300)
+    {
+        $val -= 1200;
+    }
+    
+    $minute = substr($val,-2,2);
+    $hour = preg_replace ('/(\d+?)\d\d$/','$1',$val);
+    if(substr($hour,0,1) == "0")
+    {
+        $hour = substr($hour,1);
+    }
+
+    return $hour.':'.$minute.$am;
+}
+
 
 
 function mobius_iowacourier_display() {
@@ -137,20 +255,160 @@ function mobius_iowacourier_display() {
   $varColDump =  mobius_iowacourier_generateHTMLTable();
   $page = array (
     '#markup' =>
-    '<h1>TESTING</h1>
-    '.$varColDump.'
+    '
+    <style>
+        .card-pane {
+            border: 3px solid grey;
+            position: absolute;
+            width: 90%;
+            padding: 2%;
+            left: 5%;
+            right: 5%;
+            z-index: 1000;
+            top: 16%;
+            background-color: white;
+        }
+        .card-wrapper {
+            background-color: white;
+            margin: 12px;
+        }
+        .card-pane-inner {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .card-wrapper-label {
+            font-color: black;
+            font-weight: bold;
+            font-size: 14pt;
+        }
+        .card-wrapper-data {
+        }
+        .card-pane-close {
+            position: absolute;
+            right: 0;
+            top: 0;
+        }
+        .group-card-wrapper {
+            min-width: 25%;
+        }
+        .group-card-wrapper-title {
+            font-size: 18pt;
+            text-align: center;
+            border-bottom: 1px solid blue;
+            width: 90%;
+        }
+        .card-title {
+            font-size: 40pt;
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 1px solid black;
+        }
+    </style>
+    <h1>TESTING</h1>
+     '.$varColDump.'
     <script type="text/javascript">
-    jQuery(document).ready( function () {
-        
-        
-
-    });
-    function IOWACourierLibraryClick(event)
+    <!--//--><![CDATA[//><!--
+    
+    
+    function IOWACourierLibraryClick(element)
     {
-        var targetElement = event.srcElement;
-        alert("you rang?" + targetElement);
+        var libid = jQuery(element).parent().attr("libid");
+        var thisLibrary = {};
+        var allFields = [];
+        var htmlCard = "";
+        jQuery("#iowacourier-metadata-"+libid+" > span").each(function(data){
+            var label = jQuery(this).attr("title");
+            var metaname = jQuery(this).attr("metaname");
+            var tdata = jQuery(this).html();
+            thisLibrary[metaname] = {};
+            thisLibrary[metaname]["title"] = label;
+            thisLibrary[metaname]["data"] = tdata;
+            allFields.push(metaname);
+        });
+        
+        var titleDiv = "<div class=\'card-title\'>"+thisLibrary[displayTitleField]["data"]+"</div>";
+        allFields = IOWACourierRemoveValueFromArray(displayTitleField,allFields);
+        
+        for(groupName in displayGroupingOrder)
+        {  
+            htmlCard += "<div class=\'group-card-wrapper\'><div class=\'group-card-wrapper-title\'>" + displayGroupingOrder[groupName] + "</div>";
+            
+            for(var i = 0; i < displayGrouping[displayGroupingOrder[groupName]].length; i++)
+            {   
+                if(thisLibrary[displayGrouping[displayGroupingOrder[groupName]][i]]["data"].length > 0)
+                {
+                    htmlCard += IOWACourierAddPair(thisLibrary[displayGrouping[displayGroupingOrder[groupName]][i]]["title"],thisLibrary[displayGrouping[displayGroupingOrder[groupName]][i]]["data"]);
+                    allFields = IOWACourierRemoveValueFromArray(displayGrouping[displayGroupingOrder[groupName]][i],allFields);
+                }
+            }
+            
+            htmlCard += "</div>";
+        }
+        
+        if(allFields.length > 0) /* Display the rest */
+        {
+            htmlCard += "<div class=\'group-card-wrapper\'><div class=\'group-card-wrapper-title\'>MISC Info</div>";
+            var thisSort = [];
+            for(var i = 0; i < allFields.length; i++)
+            {
+                thisSort.push(thisLibrary[allFields[i]]["title"]);
+            }
+            thisSort.sort();
+            
+            for(var i = 0; i < thisSort.length; i++)
+            {
+                for(metaname in thisLibrary)
+                {
+                    if( (thisLibrary[metaname]["title"] == thisSort[i]) && (thisLibrary[metaname]["data"].length > 0) )
+                    {
+                        htmlCard += IOWACourierAddPair(thisLibrary[metaname]["title"],thisLibrary[metaname]["data"]);
+                    }
+                }
+            }
+            htmlCard += "</div>";
+        }   
+        
+        jQuery("body").append("<div class=\'card-pane\'>"+titleDiv+"<div class=\'card-pane-inner\'>" + htmlCard + "</div>" +
+        "<div class=\'card-pane-close\'><a href=\'#\'>[close]</a></div>"+
+        "</div>");
+        
+        jQuery(".card-pane-close").click(function(){
+                jQuery(".card-pane").remove();
+        });
     }
     
+    function IOWACourierAddPair(title,data)
+    {
+        var ret = "<div class=\'card-wrapper\'>\n";
+        if(data.toLowerCase().startsWith("http"))
+        {
+            data = "<a href=\'"+data+"\'>"+data+"</a>";
+        }
+        else if( (data.match(/\./g) !== null) &&(data.match(/@/g) !== null) )
+        {
+            data = "<a href=\'mailto:"+data+"\'>"+data+"</a>";
+        }
+        ret += "<div class=\'card-wrapper-label\'>" + title + "</div>";
+        ret += "<div class=\'card-wrapper-data\'>" + data + "</div>";
+        ret += "</div>\n";
+        return ret;
+    }
+    
+    function IOWACourierRemoveValueFromArray(val,arr)
+    {
+        for(var i=0;i<arr.length;i++)
+        {
+            if(arr[i] == val)
+            {
+                arr.splice(i, 1);
+                break;
+            }
+        }
+        return arr;
+    }
+    
+    
+    //--><!]]>
     </script>
     '
   );  // end render array
