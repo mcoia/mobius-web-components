@@ -47,7 +47,7 @@ function mobius_iowacourier_generateHTMLTable()
     $colOrder = "";
     
     # Hard coded display columns. The rest are javascript displayed
-    $displayOrder = array("library_name","silo_code","city","hub","hub_city","day","route","stat_courier_pick_up_schedule","delivery_code");
+    $displayOrder = array("library_name","county","city","hub","hub_city","day","route","stat_courier_pick_up_schedule","delivery_code");
     
     $militaryColumns = array(
         "stat_courier_pick_up_schedule",
