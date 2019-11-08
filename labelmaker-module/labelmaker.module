@@ -155,7 +155,7 @@ function mobius_labelmaker_form() {
     make_mobius_select_list("to_id","TO","multiple","required")
     .'<br /><label for="quantity">Number of labels for each "To:" address:</label><br />
     <input class="text form-control" type="text" name="quantity" id="quantity" value="1" tabindex="3"/>
-    <p>If you would like to print a full page, enter "4". Selecting multiple "To:" addresses will then generate full pages of each location. <strong>Important!</strong> Only print 1 copy of the resulting file, and do not make photocopies of labels. The barcodes generated are unique in the system, and creating duplicate barcodes will cause problems. If you would like, for instance, 3 pages of the same label, enter "12". Want 4 pages? Enter "16". And so on.</p>
+    <p>If you would like to print a full page, enter "4". Selecting multiple "To:" addresses will then generate full pages of each location. <strong>Important!</strong> for labels with barcodes only print 1 copy of the resulting file, and do not make photocopies of labels. Most labels generate barcodes that are unique in the system (IA Shares labels do not use barcodes), and creating duplicate barcodes will cause problems. If you would like, for instance, 3 pages of the same label, enter "12". Want 4 pages? Enter "16". And so on.</p>
     <button class="btn btn-default" name="submit" type="submit" onClick="pageTracker._trackEvent(\'Tools\',\'LabelMaker\', \'LabelMaker Submit\');">Make Labels</button>
     </form>
     <h2><a name="instructions"></a>Instructions</h2>
