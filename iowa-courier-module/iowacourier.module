@@ -61,7 +61,8 @@ function mobius_iowacourier_generateHTMLTable()
     );
     
     $javascriptColumns = array(
-        "library_name" => "IOWACourierLibraryClick"
+        "library_name" => "IOWACourierLibraryClick",
+        "route" => "IOWACourierRouteClick"
     );
     
     $javascriptRemoveColumns = array(
@@ -132,7 +133,7 @@ function mobius_iowacourier_generateHTMLTable()
     <div style='display: none'>";
     foreach($metadata as $key => $value)
     {
-        $ret.="<div id='iowacourier-metadata-$key'>\n";
+        $ret.="<div class = 'library-hidden-data' id='iowacourier-metadata-$key'>\n";
         foreach($value as $int => $intval)
         {
             if(!(in_array($int,$javascriptRemoveColumns)))
@@ -251,7 +252,9 @@ function mobius_iowacourier_convertFromMilitary($val)
 
 function mobius_iowacourier_display() {
   drupal_page_is_cacheable($allow_caching = FALSE);
-  
+  drupal_add_js('https://maps.googleapis.com/maps/api/js?key=AIzaSyAmPDE5_oFVJ22qY5IkoAJ_eQ-XJNKOlwM&callback=myMap', 'external');
+  drupal_add_js('/sites/all/modules/iowacourier/iowacourier.js', 'external');
+
   $varColDump =  mobius_iowacourier_generateHTMLTable();
   $page = array (
     '#markup' =>
@@ -303,114 +306,56 @@ function mobius_iowacourier_display() {
             font-weight: bold;
             border-bottom: 1px solid black;
         }
+        .iowacourier-map-display-map {
+            min-width: 54%;
+        }
+        .iowacourier-map-display-table {
+            width: 42%;
+            padding: 21px 10px 0px 10px;
+        }
+        .iowacourier-waypoint-library-cell {
+        }
+        .iowacourier-waypoint-library-cell-name {
+            font-weight: bold;
+            font-size: 120%;
+        }
+        .iowacourier-waypoint-library-cell-address {
+        }
+        .iowacourier-waypoint-stop-cell {
+            text-align: center;
+            color: #EA4335;
+            font-weight: bold;
+            font-size: 20pt;
+        }
+        .iowacourier-waypoint-time-cell-data {
+        }
+        .iowacourier-map-lib-table th {
+            text-align: center;
+            width: auto;
+        }
+        .iowacourier-map-lib-table {
+                width: auto;
+            }
+        
+        @media only screen and (max-width: 1250px) {
+            
+        }
+
     </style>
-    <h1>TESTING</h1>
-     '.$varColDump.'
-    <script type="text/javascript">
-    <!--//--><![CDATA[//><!--
-    
-    
-    function IOWACourierLibraryClick(element)
-    {
-        var libid = jQuery(element).parent().attr("libid");
-        var thisLibrary = {};
-        var allFields = [];
-        var htmlCard = "";
-        jQuery("#iowacourier-metadata-"+libid+" > span").each(function(data){
-            var label = jQuery(this).attr("title");
-            var metaname = jQuery(this).attr("metaname");
-            var tdata = jQuery(this).html();
-            thisLibrary[metaname] = {};
-            thisLibrary[metaname]["title"] = label;
-            thisLibrary[metaname]["data"] = tdata;
-            allFields.push(metaname);
-        });
-        
-        var titleDiv = "<div class=\'card-title\'>"+thisLibrary[displayTitleField]["data"]+"</div>";
-        allFields = IOWACourierRemoveValueFromArray(displayTitleField,allFields);
-        
-        for(groupName in displayGroupingOrder)
-        {  
-            htmlCard += "<div class=\'group-card-wrapper\'><div class=\'group-card-wrapper-title\'>" + displayGroupingOrder[groupName] + "</div>";
-            
-            for(var i = 0; i < displayGrouping[displayGroupingOrder[groupName]].length; i++)
-            {   
-                if(thisLibrary[displayGrouping[displayGroupingOrder[groupName]][i]]["data"].length > 0)
-                {
-                    htmlCard += IOWACourierAddPair(thisLibrary[displayGrouping[displayGroupingOrder[groupName]][i]]["title"],thisLibrary[displayGrouping[displayGroupingOrder[groupName]][i]]["data"]);
-                    allFields = IOWACourierRemoveValueFromArray(displayGrouping[displayGroupingOrder[groupName]][i],allFields);
-                }
-            }
-            
-            htmlCard += "</div>";
-        }
-        
-        if(allFields.length > 0) /* Display the rest */
-        {
-            htmlCard += "<div class=\'group-card-wrapper\'><div class=\'group-card-wrapper-title\'>MISC Info</div>";
-            var thisSort = [];
-            for(var i = 0; i < allFields.length; i++)
-            {
-                thisSort.push(thisLibrary[allFields[i]]["title"]);
-            }
-            thisSort.sort();
-            
-            for(var i = 0; i < thisSort.length; i++)
-            {
-                for(metaname in thisLibrary)
-                {
-                    if( (thisLibrary[metaname]["title"] == thisSort[i]) && (thisLibrary[metaname]["data"].length > 0) )
-                    {
-                        htmlCard += IOWACourierAddPair(thisLibrary[metaname]["title"],thisLibrary[metaname]["data"]);
-                    }
-                }
-            }
-            htmlCard += "</div>";
-        }   
-        
-        jQuery("body").append("<div class=\'card-pane\'>"+titleDiv+"<div class=\'card-pane-inner\'>" + htmlCard + "</div>" +
-        "<div class=\'card-pane-close\'><a href=\'#\'>[close]</a></div>"+
-        "</div>");
-        
-        jQuery(".card-pane-close").click(function(){
-                jQuery(".card-pane").remove();
-        });
-    }
-    
-    function IOWACourierAddPair(title,data)
-    {
-        var ret = "<div class=\'card-wrapper\'>\n";
-        if(data.toLowerCase().startsWith("http"))
-        {
-            data = "<a href=\'"+data+"\'>"+data+"</a>";
-        }
-        else if( (data.match(/\./g) !== null) &&(data.match(/@/g) !== null) )
-        {
-            data = "<a href=\'mailto:"+data+"\'>"+data+"</a>";
-        }
-        ret += "<div class=\'card-wrapper-label\'>" + title + "</div>";
-        ret += "<div class=\'card-wrapper-data\'>" + data + "</div>";
-        ret += "</div>\n";
-        return ret;
-    }
-    
-    function IOWACourierRemoveValueFromArray(val,arr)
-    {
-        for(var i=0;i<arr.length;i++)
-        {
-            if(arr[i] == val)
-            {
-                arr.splice(i, 1);
-                break;
-            }
-        }
-        return arr;
-    }
-    
-    
-    //--><!]]>
-    </script>
-    '
+    <h3>Important note:</h3>
+<p>
+All of the data on this page is synchronized with the State Library of Iowa\'s <a href="https://silo.knack.com/directory">Iowa Library Directory</a>.</br> 
+Please update your individual library information in “The Knack” and it will update on this page.
+ 
+
+<h3>How to navigate this page:</h3>
+<ul>
+<li>Clicking on the name of the library will display information about that library as it appears in “The Knack” database.</li>
+<li>Each column can be clicked on to sort in ascending or descending order.</li>
+<li>Clicking on the route number will display all of the libraries who share that route along with a map.</li>
+<li>The search box on this page will search across all of the data that we are displaying.</li>
+</ul>
+     '.$varColDump
   );  // end render array
 
   return $page;
