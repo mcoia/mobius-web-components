@@ -4,7 +4,7 @@
 */
 function iowacourier_menu() {
   $items['iowacourier'] = array(
-    'title' => 'IOWA Courier',
+    'title' => 'IA Shares Delivery Schedule',
     'page callback' => 'mobius_iowacourier_display',
     'access arguments' => array('access content'),
   );
@@ -79,7 +79,7 @@ function mobius_iowacourier_generateHTMLTable()
     $javascriptUIDetails = array(
         "groups" =>
             array(
-            "Library Info" => array("mailing_address","physical_location_street_address","library_telephone_number","library_email_address","library_telephone_number","fax_number","web_address_url","monday_hours","tuesday_hours","wednesday_hours","thursday_hours","friday_hours","saturday_hours","sunday_hours"),
+            "Library Info" => array("mailing_address","physical_location_street_address","library_telephone_number","library_email_address","fax_number","web_address_url","monday_hours","tuesday_hours","wednesday_hours","thursday_hours","friday_hours","saturday_hours","sunday_hours"),
             "Courier Info" => array("silo_code","delivery_code","physical_address","hub","route","hub_city","day","stat_courier_pick_up_schedule","number_of_bags"),
             "Contacts" => array("directoradministrator","director_email_address","assistant_director","assistant_director_email_address","ill_contact","ill_email_address","ill_phone_number","ill_fax_number","childrens_services_librarian","childrens_services_email_address","teen_services_librarian","teen_services_librarian_email"),
             ),
@@ -344,16 +344,16 @@ function mobius_iowacourier_display() {
     </style>
     <h3>Important note:</h3>
 <p>
-All of the data on this page is synchronized with the State Library of Iowa\'s <a href="https://silo.knack.com/directory">Iowa Library Directory</a>.</br> 
-Please update your individual library information in “The Knack” and it will update on this page.
+Libraries can update individual library information in the State Library of Iowa\'s <a href="https://www.statelibraryofiowa.org/ld/c-d/directories/index">Iowa Library Directory</a>, and the information will appear on this page. </br>
+Pick-up/delivery times may vary slightly from what is listed on this page.</p>
  
 
 <h3>How to navigate this page:</h3>
 <ul>
-<li>Clicking on the name of the library will display information about that library as it appears in “The Knack” database.</li>
-<li>Each column can be clicked on to sort in ascending or descending order.</li>
-<li>Clicking on the route number will display all of the libraries who share that route along with a map.</li>
-<li>The search box on this page will search across all of the data that we are displaying.</li>
+<li>Clicking on the name of the library will display information about that library as it appears in the State Library of Iowa’s Iowa Library Directory.</li>
+<li>Click each column to sort in ascending or descending order.</li>
+<li>Click on the route number to display all of the libraries who share that route and a map showing the route.</li>
+<li>Use the search box to search all of the data, such as county, route number, etc.</li>
 </ul>
      '.$varColDump
   );  // end render array
