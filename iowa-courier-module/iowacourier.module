@@ -11,19 +11,6 @@ function iowacourier_menu() {
   return $items;
 }
 
-function mobius_iowacourier_fetch_mobius_institutions() {
-  $query = 'SELECT * FROM label_maker_nodes ORDER BY locName';
-  $result = db_query($query);
-  $rows = $result->fetchAllAssoc('id');
-  return $rows;
-}
-function mobius_iowacourier_fetch_iowa_institutions() {
-  $query = 'SELECT * FROM label_maker_nodes where interSort =\'IOWA\' order by locName';
-  $result = db_query($query);
-  $rows = $result->fetchAllAssoc('id');
-  return $rows;
-}
-
 function mobius_iowacourier_getColumns()
 {
     $ret = array();
@@ -103,7 +90,7 @@ function mobius_iowacourier_generateHTMLTable()
     
     $ret .= "</tr></thead><tbody>";
     $metadata = array();
-    $query = "SELECT $colOrder FROM iowa_courier_staging where id > -1";
+    $query = "SELECT $colOrder FROM iowa_courier_staging where id > -1 and library_name is not null and route is not null";
     $result = db_query($query);
     $rows = $result->fetchAllAssoc('id');
     foreach(json_decode(json_encode($rows), True) as $libraryRow)
@@ -228,12 +215,14 @@ function mobius_iowacourier_figureMilitary($val)
 function mobius_iowacourier_convertFromMilitary($val)
 {
     $val = trim($val);
+    // Strip non numerics
+    $val = preg_replace ('/[^\d]/','',$val);
     $am = "am";
-    if($val > 1200)
+    if($val >= 1200)
     {
         $am = "pm";
     }
-    if($val > 1300)
+    if($val >= 1300)
     {
         $val -= 1200;
     }

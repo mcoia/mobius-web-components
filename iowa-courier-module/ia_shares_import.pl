@@ -30,6 +30,7 @@ our $drupalStructureName = "iowa_libraries";
 our $pidfile = "/tmp/ia_shares_import.pl.pid";
 
 
+our $driver;
 our %externalKnackData = ();
 our %externalKnackDataLibNames = ();
 our $dirRoot;
@@ -37,6 +38,9 @@ our $dbHandler;
 our $databaseName = '';
 our $log;
 our $drupalconfig;
+our $fullRun = 0;
+our $singleKnack;
+our $debug = 0;
 
 # This is mostly useless because we are no long importing from CSV
 # But remains just in case we ever need to import a CSV again
@@ -110,21 +114,21 @@ our %drupalFieldMap = (
 GetOptions (
 "dir-root=s" => \$dirRoot,
 "log=s" => \$log,
-"drupal-config=s" => \$drupalconfig
+"drupal-config=s" => \$drupalconfig,
+"full" => \$fullRun,
+"single=s" => \$singleKnack,
+"debug" => \$debug
 )
 or die("Error in command line arguments\nYou can specify
 --dir-root pathToCSVFolder                    [Path to the CSV Folder - optional]
 --log path_to_log_output.log                  [Path to the log output file - required]
 --drupal-config path_to_drupal_config_file    [Path to the Drupal Config settings.php - AKA /[drupal_dir]/sites/default/settings.php]
+--full                                        [cause the software to run through a full import from Knack]
+--single                                      [Specify a knack GUID id to download and process]
+--debug                                       [Cause more log output]
 \n");
 
 
-
-if(!$dirRoot)
-{
-    print "Please specify a directory root \n";
-    exit;
-}
 
 if(!$log)
 {
@@ -142,29 +146,45 @@ $log = new Loghandler($log);
 
 $drupalconfig = new Loghandler($drupalconfig);
 
+$log->addLogLine("****************** Starting ******************");
 setupDB();
 
 figurePIDFileStuff();
+
+initializeBrowser();
 
 $log->truncFile("");
 my $writePid = new Loghandler($pidfile);
 $writePid->truncFile("running");
 undef $writePid;
 
-while(1)
+if($dirRoot)
 {
-
     my @files;
     @files = @{dirtrav(\@files, $dirRoot)};
 
     foreach(@files)
     {
-        # updateStagingFromCSV($_);
+        updateStagingFromCSV($_);
         updateProduction();
     }
-   sleep 5;
 }
 
+if($singleKnack)
+{
+    my $ID = getIDFromKnack($singleKnack);
+    my $answer = scrapeLibraryData($singleKnack);
+    $log->addLine(Dumper($answer)) if $debug;
+    updateColumnsWithKnackData($answer,$ID) if($answer);
+}
+elsif($fullRun)
+{
+    downloadFreshFromKnack();
+}
+
+closeBrowser();
+$log->addLogLine("****************** Ending ******************");
+    
 sub updateProduction
 {
     
@@ -177,9 +197,9 @@ sub updateProduction
         push @order, $value;
     }
     $query = substr($query,0,-1);
-    $query.= " from $stagingTable where changed is true or id = 4";
+    $query.= " from $stagingTable where changed is true";
     
-    $log->addLine($query);
+    $log->addLine($query) if $debug;
     
 
     my @diffs = @{$dbHandler->query($query)};
@@ -196,15 +216,15 @@ sub updateProduction
             $libAddressCol = $pos if($_ eq 'physical_address');
             $pos++;
         }
-        $log->addLine("Found lib name at column pos: $libNameCol");
-        $log->addLine("Found address at column pos: $libAddressCol");
+        $log->addLine("Found lib name at column pos: $libNameCol") if $debug;
+        $log->addLine("Found address at column pos: $libAddressCol") if $debug;
         getJSONFromKnack();
         foreach(@diffs)
         {
             my @thisLibRow = @{$_};
             my $thisLibName = @thisLibRow[$libNameCol];
             my $thisLibAddress = @thisLibRow[$libAddressCol];
-            $log->addLine($thisLibName);
+            $log->addLine($thisLibName) if $debug;
             my $ID= @thisLibRow[0];
             my $knackID = @thisLibRow[1];
             my $nID = @thisLibRow[2];
@@ -212,12 +232,11 @@ sub updateProduction
             if($knackID)  ## Need the Knack ID for further processing
             {
                 my $answer = scrapeLibraryData($knackID);
-                $log->addLine(Dumper($answer));
+                $log->addLine(Dumper($answer)) if $debug;
                 updateColumnsWithKnackData($answer,$ID) if($answer);
             }
         }
     }
-    exit;
 }
 
 sub downloadFreshFromKnack
@@ -228,12 +247,14 @@ sub downloadFreshFromKnack
         ## See if we already have a row for this knackID
         my $query = "select id from $stagingTable where knackid = '$key'";
         my @results = @{$dbHandler->query($query)};
+        $log->addLine($query);
         
         if($#results < 0)
         {
             my $uquery = "INSERT INTO $stagingTable (knackid) values( ? )";
             my @vars = ($key);
-            $log->addLine($query);
+            $log->addLine("New entry previously unknown");
+            $log->addLine($uquery);
             $log->addLine($key);
             $dbHandler->updateWithParameters($uquery,\@vars);
             @results = @{$dbHandler->query($query)};
@@ -247,12 +268,27 @@ sub downloadFreshFromKnack
     }
 }
 
+sub getIDFromKnack
+{
+    my $knackID = shift;
+    my $query = "select id from $stagingTable where knackid = '$knackID'";
+    my @res = @{$dbHandler->query($query)};
+    foreach(@res)
+    {
+        my @row = @{$_};
+        return @row[0];
+    }
+    return 0;
+}
+
 sub updateColumnsWithKnackData
 {
     my $answer = shift;
+    my $ID = shift;
     alignColumns($answer);
     my %libVals = %{$answer};
-    $log->addLine(Dumper(\%libVals));
+    $log->addLine("updateColumnsWithKnackData");
+    $log->addLine(Dumper(\%libVals)) if $debug;
     my $query = "UPDATE $stagingTable set\n";
     my @vars = ();
     while ( (my $key, my $value) = each(%libVals) )
@@ -266,8 +302,8 @@ sub updateColumnsWithKnackData
     push @vars, "0";
     $query .= "\n where id = ?";
     push @vars, $ID;
-    $log->addLine($query);
-    $log->addLine(Dumper(\@vars));                    
+    $log->addLine($query) if $debug;
+    $log->addLine(Dumper(\@vars)) if $debug;
     $dbHandler->updateWithParameters($query,\@vars);
 }
 
@@ -278,7 +314,7 @@ sub alignColumns
     while ( (my $key, my $value) = each(%data) )
     {
         my $friendlyColumnName = convertStringToFriendlyColumnName($key);
-        $log->addLine("$key => $friendlyColumnName");
+        $log->addLine("$key => $friendlyColumnName") if $debug;
         if(!$knackColMap{$friendlyColumnName})
         {
             my $query = "
@@ -337,8 +373,8 @@ sub checkColumnLabelRow
         $query .="id)\n values($valuesClause ? )";
         push @vars, -1;
     }
-    $log->addLine($query);
-    $log->addLine(Dumper(\@vars));
+    $log->addLine($query) if $debug;
+    $log->addLine(Dumper(\@vars)) if $debug;
     $dbHandler->updateWithParameters($query, \@vars);
     $dbHandler->update("update $stagingTable set changed=0 where id = -1");
 }
@@ -358,7 +394,8 @@ sub populateKNACKID
     my $knackID = shift;
     my $thisLibName = shift;
     my $thisLibAddress = shift;
-    print "knack =  $knackID\n" if ($knackID);
+    $log->addLine("populateKNACKID");
+    $log->addLine("knack =  $knackID") if ($knackID && $debug);
     
     return $knackID if ($knackID && $knackID ne 'undef');
     my @foundKnackIDs = ();
@@ -372,7 +409,7 @@ sub populateKNACKID
             {
                 $log->addLine("FOUND!");
                 my $alreadyThere = 0;
-                $alreadyThere = ($_ eq $key) ? 1 : 0 foreach(@foundKnackIDs);
+                $alreadyThere = ( ($_ eq $key) && !$alreadyThere) ? 1 : 0 foreach(@foundKnackIDs);
                 push @foundKnackIDs, $key if !$alreadyThere;
                 undef $alreadyThere;
             }
@@ -381,7 +418,7 @@ sub populateKNACKID
     if($#foundKnackIDs > 0)
     {
         
-        $log->addLine("Found more than one matched library by name $thisLibName");
+        $log->addLine("Found more than one matched library by name $thisLibName - Investigate this");
         foreach(@foundKnackIDs)
         {
             my $thisKnack = $_;
@@ -394,12 +431,12 @@ sub populateKNACKID
     if($#foundKnackIDs == 0)
     {
         $final = @foundKnackIDs[0];
-        print "$thisLibName found Single match: ".@foundKnackIDs[0]."\n";
+        $log->addLine("$thisLibName found Single match: ".@foundKnackIDs[0]) if ($debug);
     }
     
     if($final)
     {
-        my $query = "UPDATE $stagingTable set knackid = ? where id = ?";        
+        my $query = "UPDATE $stagingTable set knackid = ? where id = ?";
         my @vars = ($final,$ID);
         $log->addLine($query);
         $log->addLine(Dumper(\@vars));
@@ -423,13 +460,12 @@ sub unEscapeData
     return $d;
 }
 
-sub scrapeLibraryData
+sub initializeBrowser
 {
-    my $lid = shift;
     $Selenium::Remote::Driver::FORCE_WD3=1;
 
     # my $driver = Selenium::Firefox->new();
-    my $driver = Selenium::Remote::Driver->new
+    $driver = Selenium::Remote::Driver->new
         (
             binary => '/usr/bin/geckodriver',
             browser_name  => 'firefox',
@@ -441,14 +477,26 @@ sub scrapeLibraryData
             # }
         );
     $driver->set_window_size(1200,1500);
+}
+
+sub closeBrowser
+{
+    $driver->quit;
+
+    # $driver->shutdown_binary;
+}
+
+sub scrapeLibraryData
+{
+    my $lid = shift;
 
     my $url = $knackContactPage;
     
     $url =~ s/PUTKEYHERE/$lid/g;
     
+    $log->addLine("Getting $url");
     $driver->get($url);
-    # print $driver->has_javascript . "\n";
-    
+
     # $driver->capture_screenshot("/mnt/evergreen/test.png", {'full' => 1});
 
     my $pageLoaded = 0;
@@ -457,13 +505,17 @@ sub scrapeLibraryData
     while(!$pageLoaded)
     {
        $pageLoaded = $driver->find_element_by_class("kn-detail");
-       print "not there yet\n";
-       sleep .5;
+       sleep 1;
+       # $log->addLine("javascript: " . $driver->has_javascript);
+       # if($tries == 20)
+       # {
+            # $driver->capture_screenshot("/home/ma/iowa_courier_data_import/test.png", {'full' => 1});
+       # }
        return 0 if ($tries > $giveup);
        $tries++;
     }
     my $body = $driver->execute_script("return document.getElementsByTagName('html')[0].innerHTML");
-    
+    # $log->addLine("Body of the HTML: " . Dumper($body));
     my %libraryVals = ();
     
     pQuery(".kn-detail",$body)->each(sub {
@@ -471,16 +523,13 @@ sub scrapeLibraryData
         my $key;
         my $value;
         pQuery(".kn-detail-label > span", $_)->each(sub {
-            # print "Pushing key ".pQuery($_)->text()."\n";
             $key = pQuery($_)->text();
         })->end();
         pQuery(".kn-detail-body > span", $_)->each(sub {
-            # print "Pushing value ".pQuery($_)->text()."\n";
             $value = pQuery($_)->text();
         })->end();
         if($key && $value)
         {
-            # $log->addLine("Pushing $key -> $value");
             $libraryVals{$key} = $value;
         }
         undef $key;
@@ -488,11 +537,9 @@ sub scrapeLibraryData
         # print $i, " => ", pQuery($_)->html(), "\n";
     });
     
-    $log->addLine(Dumper(\%libraryVals));
+    $log->addLine(Dumper(\%libraryVals)) if $debug;
 
-    $driver->quit;
-
-    # $driver->shutdown_binary;
+    
     return \%libraryVals;
 }
 
@@ -632,12 +679,12 @@ sub updateStagingFromCSV
 
 sub getJSONFromKnack
 {
-    print "Downloading JSON...\n";
+    $log->addLine("Downloading JSON..");
     my $rawJSON = qx{curl --silent $knackDirectoryUrl};
     $json = JSON->new->allow_nonref;
     my %rawJSON = %{$json->decode( $rawJSON )};
     %externalKnackData = ();
-    print "Done. Parsing...\n";
+    $log->addLine("Done. Parsing...");
     foreach(@{$rawJSON{"records"}})
     {
         my %thisLib = %{$_};
@@ -769,7 +816,7 @@ sub createStagingTable
         $query.="$_ varchar(300),\n" foreach(@cols);
         $query.="PRIMARY KEY (id)\n";
         $query.=")\n";
-        print $query;
+        $log->addLine($query);
         $dbHandler->update($query);        
     }
     else
@@ -805,7 +852,7 @@ sub convertStringToFriendlyColumnName
         }
         $first = 0;
     }
-    # print $ret."\n";
+    $log->addLine($ret) if $debug;
     return $ret;
 }
 
