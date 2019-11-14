@@ -37,7 +37,9 @@ function mobius_iowacourier_generateHTMLTable()
     $displayOrder = array("library_name","county","city","hub","hub_city","day","route","stat_courier_pick_up_schedule","delivery_code");
     
     $militaryColumns = array(
-        "stat_courier_pick_up_schedule",
+        "stat_courier_pick_up_schedule"
+    );
+    $militaryColumnsNOAMPM = array(
         "monday_hours",
         "tuesday_hours",
         "wednesday_hours",
@@ -100,7 +102,9 @@ function mobius_iowacourier_generateHTMLTable()
         $metadata[$libraryRow["id"]] = array();
         foreach ($libraryRow as $key => $value)
         {
-            $finalValue = in_array($key,$militaryColumns) ? mobius_iowacourier_figureMilitary($value) : $value;
+            $finalValue = in_array($key,$militaryColumns) ? mobius_iowacourier_figureMilitary($value, 0) : $value;
+            $finalValue = in_array($key,$militaryColumnsNOAMPM) ? mobius_iowacourier_figureMilitary($finalValue, 1) : $finalValue;
+            
             if(in_array($key,$displayOrder))
             {
                 $ret .="<td libid='".$libraryRow["id"]."'>";
@@ -163,7 +167,7 @@ function mobius_iowacourier_escape($val)
     return str_replace("'", "", $val);
 }
 
-function mobius_iowacourier_figureMilitary($val)
+function mobius_iowacourier_figureMilitary($val, $removeAMPM)
 {
     $val = trim($val);
     if(strlen($val) < 3)
@@ -186,12 +190,12 @@ function mobius_iowacourier_figureMilitary($val)
                 if(strpos($low, '-') !== false)
                 {
                     $pair = explode('-',$low);
-                    $ret .=  mobius_iowacourier_convertFromMilitary($pair[0]);
-                    $ret .= "-" . mobius_iowacourier_convertFromMilitary($pair[1]);
+                    $ret .=  mobius_iowacourier_convertFromMilitary($pair[0], $removeAMPM);
+                    $ret .= "-" . mobius_iowacourier_convertFromMilitary($pair[1], $removeAMPM);
                 }
                 else
                 {
-                    $ret .=  mobius_iowacourier_convertFromMilitary($low);
+                    $ret .=  mobius_iowacourier_convertFromMilitary($low, $removeAMPM);
                 }
                 $ret .=  " , ";
             }
@@ -202,7 +206,7 @@ function mobius_iowacourier_figureMilitary($val)
             $pair = explode('-',$frag);
             foreach($pair as $key => $value)
             {
-                $ret .= "-" .  mobius_iowacourier_convertFromMilitary($value);
+                $ret .= "-" .  mobius_iowacourier_convertFromMilitary($value, $removeAMPM);
             }
             $ret = substr($ret,1);
         }
@@ -212,7 +216,7 @@ function mobius_iowacourier_figureMilitary($val)
     return $ret;
 }
 
-function mobius_iowacourier_convertFromMilitary($val)
+function mobius_iowacourier_convertFromMilitary($val, $removeAMPM)
 {
     $val = trim($val);
     // Strip non numerics
@@ -234,7 +238,12 @@ function mobius_iowacourier_convertFromMilitary($val)
         $hour = substr($hour,1);
     }
 
-    return $hour.':'.$minute.$am;
+    $ret = $hour.':'.$minute;
+    if(!$removeAMPM)
+    {
+        $ret.=$am;
+    }
+    return $ret;
 }
 
 
