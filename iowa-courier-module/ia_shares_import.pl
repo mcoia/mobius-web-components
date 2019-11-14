@@ -144,16 +144,17 @@ if(!$drupalconfig)
 
 $log = new Loghandler($log);
 
+figurePIDFileStuff();
+
 $drupalconfig = new Loghandler($drupalconfig);
 
+$log->truncFile("");
 $log->addLogLine("****************** Starting ******************");
-setupDB();
 
-figurePIDFileStuff();
+setupDB();
 
 initializeBrowser();
 
-$log->truncFile("");
 my $writePid = new Loghandler($pidfile);
 $writePid->truncFile("running");
 undef $writePid;
