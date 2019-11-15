@@ -1,3 +1,18 @@
 #!/bin/bash
 
-./ia_shares_import.pl --dir-root /home/ma/iowa_courier_data_import/courier_data/ --log /home/ma/iowa_courier_data_import/courier_log.log --drupal-config /production/sites/default/settings.php
+# Make sure all the leftover stuff isn't running
+ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+
+# run the selenium stuff
+selenium/start_selenium
+
+sleep 5
+
+./ia_shares_import.pl --log /home/ma/iowa_courier_data_import/courier_log.log --drupal-config /production/sites/default/settings.php --full
+
+# Make sure all the leftover stuff isn't running
+ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
