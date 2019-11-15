@@ -116,7 +116,7 @@ function IOWACourierRouteClick(element)
         // Sort by time
         sortedRoute.sort(function(a, b)
         {
-            return parseInt(IOWACourierLibraryConvertToMilitary(allStops[a]['stat_courier_pick_up_schedule']['data'])) > parseInt(IOWACourierLibraryConvertToMilitary(allStops[b]['stat_courier_pick_up_schedule']['data']));
+            return parseInt(IOWACourierLibraryConvertToMilitary(allStops[a]['stat_courier_pick_up_schedule']['data'])) - parseInt(IOWACourierLibraryConvertToMilitary(allStops[b]['stat_courier_pick_up_schedule']['data']));
         });
         var torigin = '';
         var tdest = '';
@@ -139,7 +139,7 @@ function IOWACourierRouteClick(element)
             }
             else  //destination
             {
-                tdest = allStops[i]['physical_address']['data'] + ', ' + allStops[sortedRoute[i]]['city']['data']  + ' ' + allStops[sortedRoute[i]]['state']['data'] + ' ' + allStops[sortedRoute[i]]['zip']['data'];
+                tdest = allStops[sortedRoute[i]]['physical_address']['data'] + ', ' + allStops[sortedRoute[i]]['city']['data']  + ' ' + allStops[sortedRoute[i]]['state']['data'] + ' ' + allStops[sortedRoute[i]]['zip']['data'];
             }
         }
 

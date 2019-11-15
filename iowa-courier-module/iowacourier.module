@@ -40,13 +40,13 @@ function mobius_iowacourier_generateHTMLTable()
         "stat_courier_pick_up_schedule"
     );
     $militaryColumnsNOAMPM = array(
-        "monday_hours",
-        "tuesday_hours",
-        "wednesday_hours",
-        "thursday_hours",
-        "friday_hours",
-        "saturday_hours",
-        "sunday_hours"        
+        // "monday_hours",
+        // "tuesday_hours",
+        // "wednesday_hours",
+        // "thursday_hours",
+        // "friday_hours",
+        // "saturday_hours",
+        // "sunday_hours"        
     );
     
     $javascriptColumns = array(
