@@ -22,7 +22,7 @@ use Getopt::Long;
 # These varialbes might change as time goes on. We are relying on the "KNACK" form IOWA.
 # https://silo.knack.com/directory
 
-our $knackDirectoryUrl = "https://us-api.knack.com/v1/scenes/scene_120/views/view_86/records/export/applications/5adf7c79596212286f183285?type=json&format=both&page=1&rows_per_page=25&sort_field=field_248&sort_order=asc";
+our $knackDirectoryUrl = "https://us-api.knack.com/v1/scenes/scene_120/views/view_231/records/export/applications/5adf7c79596212286f183285?type=json&format=both&page=1&rows_per_page=25&sort_field=field_248&sort_order=asc";
 our $knackContactPage = "https://silo.knack.com/directory#directory/directory1/PUTKEYHERE/";
 our @knackFieldForLibraryName = ("field_248","field_248_raw");
 our $stagingTable = "iowa_courier_staging";
