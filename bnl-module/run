@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Make sure all the leftover stuff isn't running
+ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+
+# run the selenium stuff
+selenium/start_selenium
+
+sleep 5
+
+./bnl_import.pl --log /mnt/evergreen/tmp/bnl/bnl_log.log --drupal-config /production/sites/default/settings.php
+
+# Make sure all the leftover stuff isn't running
+ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9

@@ -1,0 +1,30 @@
+<?php
+/**
+* Implements hook_menu().
+*/
+function borrowing_n_lending_menu() {
+  $items['borrowing_n_lending'] = array(
+    'title' => 'Borrowing and Lending',
+    'page callback' => 'mobius_borrowing_n_lending_display',
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+function mobius_borrowing_n_lending_display() {
+  drupal_page_is_cacheable($allow_caching = FALSE);
+
+  $varColDump =  mobius_borrowing_n_lending_generateHTMLTable();
+  $page = array (
+    '#markup' =>
+    '
+    
+     '
+  );  // end render array
+
+  return $page;
+}
+
+
+?>
+
