@@ -18,7 +18,9 @@ use Selenium::Firefox;
 use Selenium::Remote::WebElement;
 use pQuery;
 use Getopt::Long;
-use Try::Tiny;
+use Cwd;
+
+use sierraCluster;
 
 our $stagingTablePrefix = "mobius_bnl";
 our $pidfile = "/tmp/bnl_import.pl.pid";
@@ -30,28 +32,24 @@ our $databaseName = '';
 our $log;
 our $drupalconfig;
 our $debug = 0;
+our $recreateDB = 0;
+our $dbSeed;
 
 
-# for later
-# Query to get branch codes translated to ID's
-# select svb.code_num,svl.code from 
-# -- select * from
-# sierra_view.location svl,
-# sierra_view.branch svb
-# where
-# svb.code_num=svl.branch_code_num
-
-# limit 100
-    
     
 GetOptions (
 "log=s" => \$log,
 "drupal-config=s" => \$drupalconfig,
-"debug" => \$debug
+"debug" => \$debug,
+"recreateDB" => \$recreateDB,
+"dbSeed=s" => \$dbSeed
 )
 or die("Error in command line arguments\nYou can specify
 --log path_to_log_output.log                  [Path to the log output file - required]
+--drupal-config                               [Path to the drupal config file]
 --debug                                       [Cause more log output]
+--recreateDB                                  [Deletes the tables and recreates them]
+--dbSeed                                      [DB Seed file - populating the base data]
 \n");
 
 
@@ -76,93 +74,20 @@ $drupalconfig = new Loghandler($drupalconfig);
 $log->truncFile("");
 $log->addLogLine("****************** Starting ******************");
 
-# setupDB();
+setupDB();
+
+createDatabase();
 
 initializeBrowser();
 
 my $writePid = new Loghandler($pidfile);
 $writePid->truncFile("running");
 
+my $cwd = getcwd();
 
+my $cluster = new sierraCluster('archway',$dbHandler,$stagingTablePrefix,$driver,$cwd,$log);
+$cluster->scrape();
 
-my $url = "https://archway.searchmobius.org/manage";
- $log->addLine("Getting $url");
-    $driver->get($url);
-sleep 3;
-    $driver->capture_screenshot("/mnt/evergreen/tmp/bnl/mainpage.png", {'full' => 1});
-
-
-    my $frameNum = 0;
-    my $hasWhatIneed = 0;
-    my $tries = 0;
-    my $error = 0;
-    while(!$hasWhatIneed)
-    {
-        try
-        {
-            $driver->switch_to_frame($frameNum);
-            my $body = $driver->execute_script("return document.getElementsByTagName('html')[0].innerHTML");
-            if( ($body =~ m/Circ Activity/) && ($body =~ m/<b>CIRCULATION<\/b>/)  )
-            {
-                $hasWhatIneed=1;
-            }
-            else
-            {
-                $frameNum++;
-            }
-        }
-        catch
-        {
-            $frameNum++;
-        };
-        # walk back up to the parent frame
-        $driver->switch_to_frame();
-        $tries++;
-        my $error = 1 if $tries > 10;
-        $hasWhatIneed = 1 if $tries > 10;
-    }
-    
-    if(!$error)
-    {
-        $driver->switch_to_frame($frameNum);
-        my $body = $driver->execute_script("return document.getElementsByTagName('html')[0].innerHTML");
-        $log->addLine("Body of the HTML: " . Dumper($body));
-        
-        my @forms = $driver->find_elements('//form');
-        foreach(@forms)
-        {
-            $thisForm = $_;
-            if($thisForm->get_attribute("action") =~ /\/managerep\/startviews\/0\/d\/table_1x1/g )
-            {
-                $thisForm->submit();
-            }
-        }
-        # my $circActivty = $driver->execute_script("
-        
-        
-        # var doms = document.getElementsByTagName('form');
-        
-        # for(var i=0;i<doms.length;i++)
-        # {
-            # var thisaction = doms[i].getAttribute('action');
-            
-            # if(thisaction.match(/\\/managerep\\/startviews\\/0\\/d\\/table_1x1/g))
-            # {
-            # doms.[i].submit();
-                # //doms[i].getElementsByTagName('input')[0].click();
-                # // getAttribute('class');
-            # }
-        # }
-        
-        # ");
-        sleep 3;
-        $driver->switch_to_frame();
-        $driver->capture_screenshot("/mnt/evergreen/tmp/bnl/circactivi.png", {'full' => 1});
-
-        # $log->addLine("circ forms: " . Dumper($circActivty));
-        
-    }
-   
     # my %libraryVals = ();
     
     # pQuery(".kn-detail",$body)->each(sub {
@@ -192,52 +117,6 @@ undef $writePid;
 closeBrowser();
 $log->addLogLine("****************** Ending ******************");
 
-sub checkColumnLabelRow
-{
-    my %columnLabels = %{@_[0]};
-    my $query = "select id from $stagingTablePrefix where id = -1";
-    my @res = @{$dbHandler->query($query)};
-    my @vars;
-    if($#res > -1)
-    {
-        $query = "update $stagingTablePrefix set ";
-        while ( (my $key, my $value) = each(%columnLabels) )
-        {
-            $query .= "$key = ? ,\n";
-            push @vars, unEscapeData(getFriendlyColumnOverrides($key,$value));
-        }
-        $query = substr($query,0,-2);
-        $query .= "\n where id = ?";
-        push @vars, -1;
-    }
-    else
-    {
-        $query = "insert into $stagingTablePrefix (";
-        my $valuesClause = "";
-        while ( (my $key, my $value) = each(%columnLabels) )
-        {
-            $query .= "$key,";
-            push @vars, unEscapeData(getFriendlyColumnOverrides($key,$value));
-            $valuesClause .= "?,";
-        }
-        $query .="id)\n values($valuesClause ? )";
-        push @vars, -1;
-    }
-    $log->addLine($query) if $debug;
-    $log->addLine(Dumper(\@vars)) if $debug;
-    $dbHandler->updateWithParameters($query, \@vars);
-    $dbHandler->update("update $stagingTablePrefix set changed=0 where id = -1");
-}
-
-sub getFriendlyColumnOverrides
-{
-    my ($dbCol, $friendlyName) = @_;
-    # $log->addLine("Checking $dbCol");
-    # $log->addLine("Found it to be: ".$friendlyColOverride{$dbCol}) if $friendlyColOverride{$dbCol};
-    my $ret = $friendlyColOverride{$dbCol} || $friendlyName || $dbCol;
-    return $ret;
-}
-
 
 sub escapeData
 {
@@ -262,12 +141,6 @@ sub initializeBrowser
         (
             binary => '/usr/bin/geckodriver',
             browser_name  => 'firefox',
-            # 'platform'     => 'MAC',
-            # 'extra_capabilities' => {
-                # # firefox_binary => '/usr/bin/geckodriver'
-                # firefox_binary => '/usr/bin/firefox',
-                # firefox_profile  => $profile
-            # }
         );
     $driver->set_window_size(1200,1500);
 }
@@ -365,22 +238,37 @@ sub setupDB
     $dbHandler = new DBhandler($answers{'database'},$answers{'host'},$answers{'username'},$answers{'password'},$answers{'port'}||"3306","mysql");
 }
 
-sub createStagingTable
+sub createDatabase
 {
-    my @headers = @{$_[0]};
-    my @cols = ();
-    my @exists = @{$dbHandler->query("SELECT table_name FROM information_schema.tables WHERE table_schema = '$databaseName' AND table_name = '$stagingTable'")};
+
+    if($recreateDB)
+    {
+        my $query = "DROP TABLE $stagingTablePrefix"."_cluster ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+    }
+
+    my @exists = @{$dbHandler->query("SELECT table_name FROM information_schema.tables WHERE table_schema RLIKE '$databaseName' AND table_name RLIKE '$stagingTablePrefix'")};
     if(!$exists[0])
     {
-        print "doesn't exist\n";
-        my $query = "CREATE TABLE $stagingTablePrefix (
+        my $query = "CREATE TABLE $stagingTablePrefix"."_cluster (
         id int not null auto_increment,
-        changed boolean default true,
+        name varchar(100),
+        report_base_url varchar(1000),
+        report_username varchar(100),
+        report_pass varchar(100),
+        postgres_url varchar(100),
+        postgres_db varchar(100),
+        postgres_port varchar(100),
+        postgres_username varchar(100),
+        postgres_password varchar(100),
         ";
         $query.="PRIMARY KEY (id)\n";
         $query.=")\n";
-        $log->addLine($query);
-        $dbHandler->update($query);        
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        seedDB($dbSeed) if $dbSeed;
     }
     else
     {
@@ -388,35 +276,134 @@ sub createStagingTable
     }
 }
 
-sub convertStringToFriendlyColumnName
+sub seedDB
 {
-    my $st = shift;
-    my @previousCols = @{$_[0]};
-    my $ret = lc $st;
-    $ret =~s/^\s*//g;
-    $ret =~s/\s*$//g;
-    $ret =~s/\s/_/g;
-    $ret =~s/[\-\.'"\[\]\{\}\/\(\)\?\!\>\<]//g;
-    my $first = 1;
-    my $exists = 0;
-    while($first || $exists)
+    my $seedFile = shift;
+    my $readFile = new Loghandler($seedFile);
+    $log->addLine("Reading seeDB File $seedFile");
+    my @lines = @{$readFile->readFile()};
+    my @tables = (
+    'cluster'
+    );
+    
+    my $currTable = '';
+    my @cols = ();
+    my $insertQuery = "";
+    my @datavals = ();
+    foreach(@lines)
     {
-        $exists = 0;
-        $exists = ($_ eq $ret) ? 1 : 0 foreach(@previousCols);
-        if($exists)
+        my $line = $_;
+        $line = trim($line);
+        if($line =~ m/^\[/)
         {
-            $ret.="_0" if $first;
-            my @tok = split(/_/,$ret);
-            my $rep_num = pop @tok;
-            $ret = '';
-            $ret.= $_."_" foreach(@tok);            
-            $rep_num++;
-            $ret .= $rep_num;            
+            if( ($#cols > 0) && ($#datavals > -1) )
+            {
+                # execute the insert
+                @flatVals = ();
+                my $insertLog = $insertQuery;
+                foreach(@datavals)
+                {
+                    my @row = @{$_};
+                    $insertQuery .= "(";
+                    $insertLog .= "(";
+                    $insertQuery .= ' ? ,' foreach(@row);
+                    $insertLog .= " '$_' ," foreach(@row);
+                    $insertQuery = substr($insertQuery,0,-1);
+                    $insertLog = substr($insertLog,0,-1);
+                    $insertQuery .= "),\n";
+                    $insertLog .= "),\n";
+                    push @flatVals, @row;
+                }
+                $insertQuery = substr($insertQuery,0,-2);
+                $insertLog = substr($insertLog,0,-2);
+                $log->addLine($insertLog);
+                $dbHandler->updateWithParameters($insertQuery,\@flatVals);
+                undef @flatVals;
+            }
+            $log->addLine("seedDB: Detected cluster delcaration") if $debug;
+            $currTable = $line;
+            $currTable =~ s/^\[([^\]]*)\]/$1/g;
+            $log->addLine("Heading $currTable") if $debug;
+            @cols = @{figureColumnsFromTable($currTable)};
+            my @temp = ();
+            $insertQuery = "INSERT INTO $stagingTablePrefix"."_$currTable (";
+            foreach(@cols)
+            {
+                $insertQuery .= "$_," if($_ ne 'id');
+                push @temp, $_ if($_ ne 'id');
+            }
+            @cols = @temp;
+            undef @temp;
+            $insertQuery = substr($insertQuery,0,-1);
+            $insertQuery .= ")\nvalues\n";
+            $log->addLine(Dumper(\@cols)) if $debug;
+            $log->addLine(Dumper($#cols)) if $debug;
         }
-        $first = 0;
+        elsif($currTable)
+        {
+            $log->addLine($line);
+            
+            my @vals = split(/["'],["']/,$line);
+            $log->addLine("Split and got\n".Dumper(\@vals)) if $debug;
+            $log->addLine("Expecting $#cols and got $#vals") if $debug;
+            if($#vals == $#cols) ## Expected number of columns
+            {
+                my @v = ();
+                foreach (@vals)
+                {
+                    my $val = $_;
+                    $val =~ s/^['"]+//;
+                    $val =~ s/['"]+$//;
+                    push @v, $val;
+                }
+                push @datavals, [@v];
+            }
+        }
     }
-    $log->addLine($ret) if $debug;
-    return $ret;
+    if( ($#cols > 0) && ($#datavals > -1) )
+    {
+        # execute the insert
+        @flatVals = ();
+        my $insertLog = $insertQuery;
+        foreach(@datavals)
+        {
+            my @row = @{$_};
+            $insertQuery .= "(";
+            $insertLog .= "(";
+            $insertQuery .= ' ? ,' foreach(@row);
+            $insertLog .= " '$_' ," foreach(@row);
+            $insertQuery = substr($insertQuery,0,-1);
+            $insertLog = substr($insertLog,0,-1);
+            $insertQuery .= "),\n";
+            $insertLog .= "),\n";
+            push @flatVals, @row;
+        }
+        $insertQuery = substr($insertQuery,0,-2);
+        $insertLog = substr($insertLog,0,-2);
+        $log->addLine($insertLog);
+        $dbHandler->updateWithParameters($insertQuery,\@flatVals);
+        undef @flatVals;
+    }
+}
+
+sub figureColumnsFromTable
+{
+    my $table = shift;
+    my @ret = ();
+    my $query = "
+        SELECT COLUMN_NAME 
+        FROM 
+        INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA='$databaseName'
+        AND TABLE_NAME='$stagingTablePrefix".'_'."$table'";
+    $log->addLine($query) if $debug;
+    my @results = @{$dbHandler->query($query)};
+    foreach(@results)
+    {
+        my @row = @{$_};
+        push @ret, @row[0];
+    }
+    return \@ret;
 }
 
 sub trim
@@ -452,8 +439,6 @@ sub dirtrav
 	return \@files;
 }
 
-
-
 sub figurePIDFileStuff
 {
     if (-e $pidfile)
@@ -461,7 +446,7 @@ sub figurePIDFileStuff
         #Check the processes and see if there is a copy running:
         my $thisScriptName = $0;
         my $numberOfNonMeProcesses = scalar grep /$thisScriptName/, (split /\n/, `ps -aef`);
-        print "$thisScriptName has $numberOfNonMeProcesses running\n";
+        print "$thisScriptName has $numberOfNonMeProcesses running\n" if $debug;
         # The number of processes running in the grep statement will include this process,
         # if there is another one the count will be greater than 1
         if($numberOfNonMeProcesses > 1)
