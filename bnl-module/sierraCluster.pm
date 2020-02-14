@@ -109,41 +109,100 @@ sub scrape
     
     if(!$self->{error})
     {
-    
         $log->addLine("Getting " . $self->{webURL});
         $driver->get($self->{webURL});
-        sleep 3;
-        takeScreenShot($self);
+        sleep 3; # initial page load takes time.
+        takeScreenShot($self,'pageload');
+        my $continue = handleLandingPage($self);
+        $continue = handleLoginPage($self) if $continue;
+        $continue = handleCircStatOwningHome($self) if $continue;
+        # $continue = handleCircStatOwningHome($self) if $continue;
         
-        my @frameSearchElements = ('Circ Activity', '<b>CIRCULATION<\/b>');
         
-        if(!switchToFrame($self,\@frameSearchElements))
-        {
-            my @forms = $driver->find_elements('//form');
-            foreach(@forms)
-            {
-                $thisForm = $_;
-                if($thisForm->get_attribute("action") =~ /\/managerep\/startviews\/0\/d\/table_1x1/g )
-                {
-                    $thisForm->submit();
-                }
-            }
-            
-            sleep 3;
-            $driver->switch_to_frame();
-            takeScreenShot($self);
-
-            handleLoginPage($self);
-            
-            takeScreenShot($self);
-
-        }
     }
    
 }
 
+sub handleLandingPage
+{
+    my ($self) = @_[0];
+    print "handleLandingPage\n";
+    my @frameSearchElements = ('Circ Activity', '<b>CIRCULATION<\/b>');
+        
+    if(!switchToFrame($self,\@frameSearchElements))
+    {
+        my @forms = $driver->find_elements('//form');
+        foreach(@forms)
+        {
+            $thisForm = $_;
+            if($thisForm->get_attribute("action") =~ /\/managerep\/startviews\/0\/d\/table_1x1/g )
+            {
+                $thisForm->submit();
+            }
+        }
+        
+        sleep 1;
+        $driver->switch_to_frame();
+        takeScreenShot($self,'handleLandingPage');
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+sub handleCircStatOwningHome
+{
+    my ($self) = @_[0];
+print "handleCircStatOwningHome\n";
+    my @frameSearchElements = ('Owning\/Home', 'htcircrep\/owning\/\/o\|\|\|\|\|\/');
+    if(!switchToFrame($self,\@frameSearchElements))
+    {   
+        my $owning = $driver->execute_script("
+            var doms = document.getElementsByTagName('a');
+            var stop = 0;
+            for(var i=0;i<doms.length;i++)
+            {
+                if(!stop)
+                {
+                    var thisaction = doms[i].getAttribute('onClick');
+
+                    if(thisaction.match(/htcircrep\\/owning\\/\\/o\\|\\|\\|\\|\\|\\//g))
+                    {
+                        doms[i].click();
+                        stop = 1;
+                    }
+                }
+            }
+            if(!stop)
+            {
+                return 'didnt find the button';
+            }
+
+            ");
+        sleep 1;
+        $owning = $driver->execute_script("
+            var doms = document.getElementsByTagName('form');
+            for(var i=0;i<doms.length;i++)
+            {
+                doms[i].submit();
+            }
+        ");
+        sleep 1;
+        $driver->switch_to_frame();
+        takeScreenShot($self,'handleCircStatOwningHome');
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 sub handleLoginPage
 {
+print "handleLoginPage\n";
     my ($self) = @_[0];
     my $body = $driver->execute_script("return document.getElementsByTagName('html')[0].innerHTML");
     $body =~ s/[\r\n]//g;
@@ -172,17 +231,23 @@ sub handleLoginPage
                     }
                 }
 
-                ");
-                takeScreenShot($self);
+                ");                
                 $thisForm->submit();
-                sleep 1;
+                sleep 1;                
+                takeScreenShot($self,'handleLoginPage');
             }
         }
-    }    
+    }
+    else
+    {
+        print "no login page found";
+    }
+    return 1;  # always return true even when it doesn't prompt to login
 }
 
 sub switchToFrame
 {
+print "switchToFrame\n";
     my ($self) = @_[0];
     my @pageVals = @{@_[1]};
     my $frameNum = 0;
@@ -251,8 +316,10 @@ sub switchToFrame
 
 sub takeScreenShot
 {
-    my ($self) = @_[0];
-    $driver->capture_screenshot("$screenshotDIR/".$self->{name}."_progress.png", {'full' => 1});
+    my ($self) = shift;
+    my $action = shift;
+    print "writing screenshot: $screenshotDIR/".$self->{name}."_".$action."_progress.png\n";
+    $driver->capture_screenshot("$screenshotDIR/".$self->{name}."_".$action."_progress.png", {'full' => 1});
 }
 
 sub DESTROY
