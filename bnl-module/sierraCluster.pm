@@ -106,6 +106,9 @@ sub getClusterVars
 sub scrape
 {
     my ($self) = shift;
+    my $monthsBack = shift || 5;
+    my @dateScrapes = @{figureWhichDates($self)};
+
     
     if(!$self->{error})
     {
@@ -116,12 +119,123 @@ sub scrape
         my $continue = handleLandingPage($self);
         $continue = handleLoginPage($self) if $continue;
         $continue = handleCircStatOwningHome($self) if $continue;
-        # $continue = handleCircStatOwningHome($self) if $continue;
-        
-        
+        foreach(@dateScrapes)
+        {
+            $continue = handleReportSelection($self,$_) if $continue;
+            collectReportData($self) if $continue;
+            exit;
+        }
     }
    
 }
+
+
+sub collectReportData
+{
+    my ($self) = @_[0];
+print "collectReportData\n";
+    my @frameSearchElements = ('HOME LIBRARY TOTAL CIRCULATION');
+        
+    if(!switchToFrame($self,\@frameSearchElements))
+    {
+        my @table = $driver->find_elements('//table');
+        
+        
+        $driver->switch_to_frame();
+        
+        
+    }
+    else
+    {
+        return 0;
+    }
+}
+sub handleReportSelection
+{
+    my ($self) = @_[0];
+    my $selection = @_[1];
+print "handleReportSelection\n";
+    my @frameSearchElements = ('TOTAL circulation', 'Choose a STARTING and ENDING month');
+        
+    if(!switchToFrame($self,\@frameSearchElements))
+    {   
+        my $owning = $driver->execute_script("
+            var doms = document.getElementsByTagName('td');
+            var stop = 0;
+            for(var i=0;i<doms.length;i++)
+            {
+                if(!stop)
+                {
+                    var thisaction = doms[i].innerHTML;
+
+                    if(thisaction.match(/".$selection."/gi))
+                    {
+                        doms[i].getElementsByTagName('input')[0].click();
+                        stop = 1;
+                    }
+                }
+            }
+            if(!stop)
+            {
+                return 'didnt find the button';
+            }
+
+            ");
+        sleep 1;
+        $owning = $driver->execute_script("
+            var doms = document.getElementsByTagName('form');
+            for(var i=0;i<doms.length;i++)
+            {
+                doms[i].submit();
+            }
+        ");
+        sleep 1;
+        $driver->switch_to_frame();
+        my $finished = handleReportSelection_processing_waiting($self);
+        takeScreenShot($self,'handleReportSelection');
+        return $finished;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+sub handleReportSelection_processing_waiting
+{
+    my ($self) = @_[0];
+    my $count = @_[1] || 0 ;
+print "handleReportSelection_processing_waiting\n";
+    my @frameSearchElements = ('This statistical report is calculating.');
+        
+    if(!switchToFrame($self,\@frameSearchElements)) ## will only exist while server is processing the request
+    {
+        if($count < 10) # only going to try this 10 times
+        {
+            my $owning = $driver->execute_script("
+                var doms = document.getElementsByTagName('form');
+                for(var i=0;i<doms.length;i++)
+                {
+                    doms[i].submit();
+                }
+            ");
+            sleep 1;
+            $driver->switch_to_frame();
+            $count++;
+            my $worked = handleReportSelection_processing_waiting($self,$count);
+            return $worked;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    else
+    {
+        return 1;
+    }
+}
+
 
 sub handleLandingPage
 {
@@ -321,6 +435,64 @@ sub takeScreenShot
     print "writing screenshot: $screenshotDIR/".$self->{name}."_".$action."_progress.png\n";
     $driver->capture_screenshot("$screenshotDIR/".$self->{name}."_".$action."_progress.png", {'full' => 1});
 }
+
+
+sub figureWhichDates
+{
+    my ($self) = shift;
+    my $monthsBack = shift || 5;
+    my %alreadyScraped = ();
+    
+    my @months = qw( onebase Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
+    my @ret = ();
+    
+    my $query = "
+    select
+    distinct
+    concat(extract(year from borrow_date),'-',extract(month from borrow_date) )
+    from
+    $self->{prefix}"."_bnl bnl,
+    $self->{prefix}"."_cluster cluster
+    where
+    cluster.id=bnl.owning_cluster and
+    cluster.name ='".$cluster."'
+    order by 1
+    ";
+
+    $log->addLine($query);
+    my @results = @{$self->{dbHandler}->query($query)};
+    foreach(@results)
+    {
+        my @row = @{$_};
+        $alreadyScraped{ @row[0] } = 1;
+    }
+    
+    my $loops = 1;
+    while($loops < $monthsBack)
+    {
+        my $query = "
+        select
+        concat(
+        extract(year from date_sub(now(),interval $loops month)),
+        '-',
+        extract(month from date_sub(now(), interval $loops month))        
+        ),
+        right(extract(year from date_sub(now(), interval $loops month)),2),
+        extract(month from date_sub(now(), interval $loops month))
+        ";
+        $log->addLine($query);
+        my @results = @{$self->{dbHandler}->query($query)};
+        foreach(@results)
+        {
+            my @row = @{$_};
+            push @ret, "" . @months[@row[2]] . " " . @row[1] if !$alreadyScraped{ @row[0] };
+        }
+        $loops++;
+    }
+
+    return \@ret;
+}
+
 
 sub DESTROY
 {

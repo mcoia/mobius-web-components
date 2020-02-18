@@ -85,38 +85,15 @@ $writePid->truncFile("running");
 
 my $cwd = getcwd();
 
-my $cluster = new sierraCluster('archway',$dbHandler,$stagingTablePrefix,$driver,$cwd,$log);
-$cluster->scrape();
 
-    # my %libraryVals = ();
-    
-    # pQuery(".kn-detail",$body)->each(sub {
-        # my $i = shift;
-        # my $key;
-        # my $value;
-        # pQuery(".kn-detail-label > span", $_)->each(sub {
-            # $key = pQuery($_)->text();
-        # })->end();
-        # pQuery(".kn-detail-body > span", $_)->each(sub {
-            # $value = pQuery($_)->text();
-        # })->end();
-        # if($key && $value)
-        # {
-            # $libraryVals{$key} = $value;
-        # }
-        # undef $key;
-        # undef $value;
-        # # print $i, " => ", pQuery($_)->html(), "\n";
-    # });
-    
-    # $log->addLine(Dumper(\%libraryVals)) if $debug;
-    
+my $cluster = new sierraCluster('archway',$dbHandler,$stagingTablePrefix,$driver,$cwd,$log);
+
+$cluster->scrape(\@dateScrapes);
     
 
 undef $writePid;
 closeBrowser();
 $log->addLogLine("****************** Ending ******************");
-
 
 sub escapeData
 {
@@ -150,63 +127,6 @@ sub closeBrowser
     $driver->quit;
 
     # $driver->shutdown_binary;
-}
-
-sub scrapeLibraryData
-{
-    my $lid = shift;
-
-    my $url = $knackContactPage;
-    
-    $url =~ s/PUTKEYHERE/$lid/g;
-    
-    $log->addLine("Getting $url");
-    $driver->get($url);
-
-    # $driver->capture_screenshot("/mnt/evergreen/test.png", {'full' => 1});
-
-    # my $pageLoaded = 0;
-    # my $giveup = 100;
-    # my $tries = 0;
-    # while(!$pageLoaded)
-    # {
-       # $pageLoaded = $driver->find_element_by_class("kn-detail");
-       # sleep 1;
-       # # $log->addLine("javascript: " . $driver->has_javascript);
-       # # if($tries == 20)
-       # # {
-            # # $driver->capture_screenshot("/home/ma/iowa_courier_data_import/test.png", {'full' => 1});
-       # # }
-       # return 0 if ($tries > $giveup);
-       # $tries++;
-    # }
-    # my $body = $driver->execute_script("return document.getElementsByTagName('html')[0].innerHTML");
-    # # $log->addLine("Body of the HTML: " . Dumper($body));
-    # my %libraryVals = ();
-    
-    # pQuery(".kn-detail",$body)->each(sub {
-        # my $i = shift;
-        # my $key;
-        # my $value;
-        # pQuery(".kn-detail-label > span", $_)->each(sub {
-            # $key = pQuery($_)->text();
-        # })->end();
-        # pQuery(".kn-detail-body > span", $_)->each(sub {
-            # $value = pQuery($_)->text();
-        # })->end();
-        # if($key && $value)
-        # {
-            # $libraryVals{$key} = $value;
-        # }
-        # undef $key;
-        # undef $value;
-        # # print $i, " => ", pQuery($_)->html(), "\n";
-    # });
-    
-    # $log->addLine(Dumper(\%libraryVals)) if $debug;
-
-    
-    # return \%libraryVals;
 }
 
 sub setupDB
@@ -243,9 +163,17 @@ sub createDatabase
 
     if($recreateDB)
     {
+        my $query = "DROP TABLE $stagingTablePrefix"."_bnl ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP TABLE $stagingTablePrefix"."_branch ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_cluster ";
         $log->addLine($query);
         $dbHandler->update($query);
+        
+        
     }
 
     my @exists = @{$dbHandler->query("SELECT table_name FROM information_schema.tables WHERE table_schema RLIKE '$databaseName' AND table_name RLIKE '$stagingTablePrefix'")};
@@ -262,9 +190,42 @@ sub createDatabase
         postgres_port varchar(100),
         postgres_username varchar(100),
         postgres_password varchar(100),
+        PRIMARY KEY (id)
+        )
         ";
-        $query.="PRIMARY KEY (id)\n";
-        $query.=")\n";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        $query = "CREATE TABLE $stagingTablePrefix"."_branch (
+        id int not null auto_increment,
+        cluster int,
+        institution varchar(100),
+        shortname varchar(100),
+        PRIMARY KEY (id),
+        UNIQUE INDEX (cluster, shortname),
+        FOREIGN KEY (cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE
+        )
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        $query = "CREATE TABLE $stagingTablePrefix"."_bnl (
+        id int not null auto_increment,
+        owning_cluster int,
+        owning_branch int,
+        borrowing_cluster int,
+        borrowing_branch int,
+        quantity int,
+        borrow_date date,
+        insert_time datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE INDEX (owning_cluster, owning_branch, borrowing_cluster, borrowing_branch),
+        FOREIGN KEY (owning_cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE,
+        FOREIGN KEY (borrowing_cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE,
+        FOREIGN KEY (owning_branch) REFERENCES $stagingTablePrefix"."_branch(id) ON DELETE CASCADE,
+        FOREIGN KEY (borrowing_branch) REFERENCES $stagingTablePrefix"."_branch(id) ON DELETE CASCADE
+        )
+        ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
         
