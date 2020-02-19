@@ -163,6 +163,9 @@ sub createDatabase
 
     if($recreateDB)
     {
+        my $query = "DROP TABLE $stagingTablePrefix"."_bnl_stage ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_bnl ";
         $log->addLine($query);
         $dbHandler->update($query);
@@ -219,11 +222,25 @@ sub createDatabase
         borrow_date date,
         insert_time datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
-        UNIQUE INDEX (owning_cluster, owning_branch, borrowing_cluster, borrowing_branch),
+        UNIQUE INDEX (owning_cluster, owning_branch, borrowing_cluster, borrowing_branch, borrow_date),
         FOREIGN KEY (owning_cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE,
         FOREIGN KEY (borrowing_cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE,
         FOREIGN KEY (owning_branch) REFERENCES $stagingTablePrefix"."_branch(id) ON DELETE CASCADE,
         FOREIGN KEY (borrowing_branch) REFERENCES $stagingTablePrefix"."_branch(id) ON DELETE CASCADE
+        )
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        $query = "CREATE TABLE $stagingTablePrefix"."_bnl_stage (
+        id int not null auto_increment,
+        working_hash varchar(100),
+        owning_lib varchar(100),
+        borrowing_lib varchar(100),
+        quantity int,
+        borrow_date date,
+        insert_time datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id)
         )
         ";
         $log->addLine($query) if $debug;
