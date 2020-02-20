@@ -2,25 +2,10 @@
 
 package sierraCluster;
 
-
+use pQuery;
 use Try::Tiny;
 use Data::Dumper;
 
-
-# for later
-# Query to get branch codes translated to ID's
-# select svb.code_num,svl.code,svbn.name,svbn.branch_id 
-# -- select svbn.name,count(*)
-# from
-# -- select * from
-# sierra_view.location svl,
-# sierra_view.branch svb,
-# sierra_view.branch_name svbn
-# where
-# svbn.branch_id=svb.id and
-# svb.code_num=svl.branch_code_num
-
-# limit 100
 
 
 our $log;
@@ -53,7 +38,7 @@ sub new
     $log = shift;
     if($self->{name} && $self->{dbHandler} && $self->{prefix} && $driver && $log)
     {
-        getClusterVars($self) 
+        $self = getClusterVars($self) 
     }
     else
     {
@@ -102,6 +87,8 @@ sub getClusterVars
     }
 
     $self->{error} = 1 if($#results == -1);
+
+    return $self;
 }
 
 
@@ -109,6 +96,8 @@ sub scrape
 {
     my ($self) = shift;
     my $monthsBack = shift || 5;
+    translateShortCodes($self);
+    exit;
     my @dateScrapes = @{figureWhichDates($self)};
 
     
@@ -153,35 +142,35 @@ print "collectReportData\n";
         my @borrowingLibs = ();
         my %borrowingMap = ();
         
-        my @table = $driver->find_elements('//table');
-        
-        my $table = @table[0] if @table;
-        
-        my @rows = $table->children('//tr');
-        
-        my $rowNum = 0;        
-        foreach(@rows)
-        {
-            print "Parsing row $rowNum\n";
+        my $owning = $driver->execute_script("
+            var doms = document.getElementsByTagName('table');
+            var stop = 0;
+            for(var i=0;i<doms.length;i++)
+            {
+                return doms[i].innerHTML;
+            }
+            ");
+        $log->addLine("Got this: $owning");
+        my $rowNum = 0;
+        pQuery("tr",$owning)->each(sub {
             if($rowNum > 0) ## Skipping the title row
             {
+                my $i = shift;
                 my $row = $_;
-                my $rowText = $row->get_text();
-                $log->addLine("READING: $rowText");
-                my @cells = $driver->find_child_elements($row,'./td');
                 my $colNum = 0;
                 my $owningLib = '';
-                foreach(@cells)
-                {
+                print "Parsing row $rowNum\n";
+                pQuery("td",$row)->each(sub {
+                    shift;
                     if($rowNum == 1) # Header row - need to collect the borrowing headers
                     {
-                        push @borrowingLibs, $_->get_text();
+                        push @borrowingLibs, pQuery($_)->text();
                     }
                     else
                     {
                         if($colNum == 0) # Owning Library
                         {
-                            $owningLib = $_->get_text();
+                            $owningLib = pQuery($_)->text();
                         }
                         else
                         {
@@ -191,16 +180,67 @@ print "collectReportData\n";
                                 $borrowingMap{$owningLib} = \%newmap;
                             }
                             my %thisMap = %{$borrowingMap{$owningLib}};
-                            $thisMap{@borrowingLibs[$colNum]} = $_->get_text();
+                            $thisMap{@borrowingLibs[$colNum]} = pQuery($_)->text();
                             $borrowingMap{$owningLib} = \%thisMap;
                         }
                     }
                     $colNum++;
-                }
+                });
+               
             }
             $rowNum++;
-            last if $rowNum > 10;
-        }
+        });
+
+        ### This code does the same thing but using webcomponent - dang it's slow!
+        
+        # my @table = $driver->find_elements('//table');
+        
+        # my $table = @table[0] if @table;
+        
+        # my @rows = $table->children('//tr');
+        
+        # my $rowNum = 0;        
+        # foreach(@rows)
+        # {
+            # print "Parsing row $rowNum\n";
+            # if($rowNum > 0) ## Skipping the title row
+            # {
+                # my $row = $_;
+                # my $rowText = $row->get_text();
+                # $log->addLine("READING: $rowText");
+                # my @cells = $driver->find_child_elements($row,'./td');
+                # my $colNum = 0;
+                # my $owningLib = '';
+                # foreach(@cells)
+                # {
+                    # if($rowNum == 1) # Header row - need to collect the borrowing headers
+                    # {
+                        # push @borrowingLibs, $_->get_text();
+                    # }
+                    # else
+                    # {
+                        # if($colNum == 0) # Owning Library
+                        # {
+                            # $owningLib = $_->get_text();
+                        # }
+                        # else
+                        # {
+                            # if(!$borrowingMap{$owningLib})
+                            # {   
+                                # my %newmap = ();
+                                # $borrowingMap{$owningLib} = \%newmap;
+                            # }
+                            # my %thisMap = %{$borrowingMap{$owningLib}};
+                            # $thisMap{@borrowingLibs[$colNum]} = $_->get_text();
+                            # $borrowingMap{$owningLib} = \%thisMap;
+                        # }
+                    # }
+                    # $colNum++;
+                # }
+            # }
+            # $rowNum++;
+            # last if $rowNum > 10;
+        # }
         
         # Spidered the table - now saving it to storage
         $randomHash = generateRandomString($self,12);
@@ -355,10 +395,94 @@ print "collectReportData\n";
         @vals = ($randomHash);
         $log->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
+
+        ## Attempt to correct any unknown branches
+        translateShortCodes($self);
     }
     else
     {
         return 0;
+    }
+}
+
+sub translateShortCodes
+{
+    my ($self) = @_[0];
+    my $postgresConnector;
+    my $worked = 0;
+    try
+    {
+        $log->addLine("logging into PG");
+        $log->addLine("$self{'pgDB'},$self{'pgURL'},$self{'pgUser'},$self{'pgPass'},$self{'pgPort'}");
+        $postgresConnector = new DBhandler($self{'pgDB'},$self{'pgURL'},$self{'pgUser'},$self{'pgPass'},$self{'pgPort'},"pg");
+        $worked = 1 if($postgresConnector->getQuote(""));
+    }
+    catch
+    {
+        ## Couldn't connect
+    };
+    if($worked)
+    {
+        MY $randomHash = generateRandomString($self,12);
+        my $query = 
+        "
+        select svb.code_num,svl.code,svbn.name,svbn.branch_id 
+        from
+        sierra_view.location svl,
+        sierra_view.branch svb,
+        sierra_view.branch_name svbn
+        where
+        svbn.branch_id=svb.id and
+        svb.code_num=svl.branch_code_num
+        ";
+        my @results = @{$postgresConnector->query($query)};
+
+
+        ## re-using an already existing table to stage our results into.
+        $query = "INSERT INTO 
+        $self->{prefix}"."_bnl_stage
+        (working_hash,owning_lib,borrowing_lib)
+        values
+        ";
+        foreach(@results)
+        {
+            my @row = @{$_};
+            $query .= "(?,?),\n";
+            push @vals, (trim(@row[1]), trim(@row[2]) );
+        }
+        $query = substr($query,0,-2);
+        $log->addLine($query);
+        # $log->addLine(Dumper(\@vals));
+        $self->{dbHandler}->updateWithParameters($query,\@vals);
+        
+        
+        $query = "
+        UPDATE 
+        $self->{prefix}"."_branch branch
+        set
+        institution = bnl_stage.borrowing_lib
+        FROM
+        $self->{prefix}"."_bnl_stage bnl_stage
+        WHERE
+        bnl_stage.owning_lib = branch.shortname and
+        branch.cluster = ?";
+        @vals = ($self->{name});
+        $log->addLine($query);
+        # $log->addLine(Dumper(\@vals));
+        $self->{dbHandler}->updateWithParameters($query,\@vals);
+
+        ## And clear out our staging table
+        # $query = "
+        # DELETE FROM $self->{prefix}"."_bnl_stage
+        # WHERE
+        # working_hash = ?
+        # ";
+        # $log->addLine($query);
+        # @vals = ($randomHash);
+        # $log->addLine(Dumper(\@vals));
+        # $self->{dbHandler}->updateWithParameters($query,\@vals);
+        undef @vals;
+
     }
 }
 
@@ -793,6 +917,13 @@ sub generateRandomString
 	return $ret;
 }
 
+sub trim
+{
+	my $string = shift;
+	$string =~ s/^\s+//;
+	$string =~ s/\s+$//;
+	return $string;
+}
 
 sub DESTROY
 {
