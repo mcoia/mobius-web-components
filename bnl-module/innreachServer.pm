@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-package sierraCluster;
+package innreachServer;
 
 use parent iiiServer;
 
@@ -8,7 +8,7 @@ use parent iiiServer;
 sub scrape
 {
 
-    my ($self) = shift;
+ my ($self) = shift;
     my $monthsBack = shift || 5;
     
     my @dateScrapes = @{figureWhichDates($self)};

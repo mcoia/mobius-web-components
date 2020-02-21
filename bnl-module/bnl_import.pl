@@ -185,6 +185,7 @@ sub createDatabase
         my $query = "CREATE TABLE $stagingTablePrefix"."_cluster (
         id int not null auto_increment,
         name varchar(100),
+        type varchar(100),
         report_base_url varchar(1000),
         report_username varchar(100),
         report_pass varchar(100),
