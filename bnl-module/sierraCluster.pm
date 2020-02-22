@@ -2,23 +2,27 @@
 
 package sierraCluster;
 
+use pQuery;
+use Try::Tiny;
+use Data::Dumper;
+
+
 use parent iiiServer;
 
 
 sub scrape
 {
-
     my ($self) = shift;
     my $monthsBack = shift || 5;
-    
-    my @dateScrapes = @{figureWhichDates($self)};
+
+    my @dateScrapes = @{$self->figureWhichDates()};
     
     if(!$self->{error})
     {
-        $log->addLine("Getting " . $self->{webURL});
-        $driver->get($self->{webURL});
+        $self->{log}->addLine("Getting " . $self->{webURL});
+        $self->{driver}->get($self->{webURL});
         sleep 3; # initial page load takes time.
-        takeScreenShot($self,'pageload');
+        $self->takeScreenShot('pageload');
         my $continue = handleLandingPage($self);
         $continue = handleLoginPage($self) if $continue;
         if(@dateScrapes[0])
@@ -46,87 +50,9 @@ sub collectReportData
 print "collectReportData\n";
     my @frameSearchElements = ('HOME LIBRARY TOTAL CIRCULATION');
         
-    if(!switchToFrame($self,\@frameSearchElements))
+    if(!$self->switchToFrame(\@frameSearchElements))
     {
-        # Setup collection Variables
-        my @borrowingLibs = ();
-        my %borrowingMap = ();
-        
-        my $owning = $driver->execute_script("
-            var doms = document.getElementsByTagName('table');
-            var stop = 0;
-            for(var i=0;i<doms.length;i++)
-            {
-                return doms[i].innerHTML;
-            }
-            ");
-        $log->addLine("Got this: $owning");
-        my $rowNum = 0;
-        pQuery("tr",$owning)->each(sub {
-            if($rowNum > 0) ## Skipping the title row
-            {
-                my $i = shift;
-                my $row = $_;
-                my $colNum = 0;
-                my $owningLib = '';
-                print "Parsing row $rowNum\n";
-                pQuery("td",$row)->each(sub {
-                    shift;
-                    if($rowNum == 1) # Header row - need to collect the borrowing headers
-                    {
-                        push @borrowingLibs, pQuery($_)->text();
-                    }
-                    else
-                    {
-                        if($colNum == 0) # Owning Library
-                        {
-                            $owningLib = pQuery($_)->text();
-                        }
-                        else
-                        {
-                            if(!$borrowingMap{$owningLib})
-                            {   
-                                my %newmap = ();
-                                $borrowingMap{$owningLib} = \%newmap;
-                            }
-                            my %thisMap = %{$borrowingMap{$owningLib}};
-                            $thisMap{@borrowingLibs[$colNum]} = pQuery($_)->text();
-                            $borrowingMap{$owningLib} = \%thisMap;
-                        }
-                    }
-                    $colNum++;
-                });
-               
-            }
-            $rowNum++;
-        });
-
-        # Spidered the table - now saving it to storage
-        $randomHash = generateRandomString($self,12);
-        print "Random hash = $randomHash\n";
-        my @vals = ();
-        my $query = "INSERT INTO 
-        $self->{prefix}"."_bnl_stage
-        (working_hash,owning_lib,borrowing_lib,quantity,borrow_date)
-        values
-        ";
-        while ((my $key, my $value ) = each(%borrowingMap))
-        {
-            my %innermap = %{$value};
-            while ((my $insideKey, my $insideValue ) = each(%innermap))
-            {
-                $query .= "(?,?,?,?,?),\n";
-                push @vals, ($randomHash, $key, $insideKey, $insideValue, $dbDate);
-            }
-        }
-        $query = substr($query,0,-2);
-        $log->addLine($query);
-        # $log->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
-        undef $borrowingMap;
-        undef $query;
-        undef @vals;
-        
+        my $randomHash = $self->SUPER::collectReportData($dbDate);
         # now we need to create a branch for any potiential new branches/institutions
         
         my $query = "INSERT INTO $self->{prefix}"."_branch
@@ -145,8 +71,8 @@ print "collectReportData\n";
             $self->{prefix}"."_branch
         )";
         my @vals = ($randomHash,$self->{name});
-        $log->addLine($query);
-        $log->addLine(Dumper(\@vals));
+        $self->{log}->addLine($query);
+        $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
         
         
@@ -167,8 +93,8 @@ print "collectReportData\n";
             $self->{prefix}"."_branch
         )";
         @vals = ($randomHash,$self->{name});
-        $log->addLine($query);
-        $log->addLine(Dumper(\@vals));
+        $self->{log}->addLine($query);
+        $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
         
         # Now that the branches exist and have an ID number, we can migrate from the staging table into production
@@ -210,8 +136,8 @@ print "collectReportData\n";
         ) 
         =  thejoiner.together
         ";
-        $log->addLine($query);
-        $log->addLine(Dumper(\@vals));
+        $self->{log}->addLine($query);
+        $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
         
         
@@ -240,8 +166,8 @@ print "collectReportData\n";
         borrowing_branch_table.shortname = bnl_stage.borrowing_lib and
         borrowing_branch_table.cluster = cluster.id
         ";
-        $log->addLine($query);
-        $log->addLine(Dumper(\@vals));
+        $self->{log}->addLine($query);
+        $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
 
         ## And clear out our staging table
@@ -250,9 +176,9 @@ print "collectReportData\n";
         WHERE
         working_hash = ?
         ";
-        $log->addLine($query);
+        $self->{log}->addLine($query);
         @vals = ($randomHash);
-        $log->addLine(Dumper(\@vals));
+        $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
 
         ## Attempt to correct any unknown branches
@@ -263,7 +189,6 @@ print "collectReportData\n";
         return 0;
     }
 }
-
 
 sub translateShortCodes
 {
@@ -277,14 +202,14 @@ sub translateShortCodes
     $self->{prefix}"."_branch
     where
     institution like 'unknown_%' limit 1";
-    $log->addLine($query);
+    $self->{log}->addLine($query);
     my @results = @{$self->{dbHandler}->query($query)};
     $worked  = 0 if($#results < 0);
     if( (!$self->{postgresConnector}) && $worked )
     {
         try
         {
-            $log->addLine("Making new DB connection to pg");
+            $self->{log}->addLine("Making new DB connection to pg");
             $self->{postgresConnector} = new DBhandler($self->{pgDB},$self->{pgURL},$self->{pgUser},$self->{pgPass},$self->{pgPort},"pg");
             $worked = 1 if($self->{postgresConnector}->getQuote(""));
         }
@@ -299,7 +224,7 @@ sub translateShortCodes
     }
     if($worked)
     {
-        my $randomHash = generateRandomString($self,12);
+        my $randomHash = $self->generateRandomString(12);
         my $query = 
         "
         select svb.code_num,svl.code,svbn.name,svbn.branch_id 
@@ -312,7 +237,7 @@ sub translateShortCodes
         svb.code_num=svl.branch_code_num
         ";
         
-        $log->addLine("Connection to PG:\n$query");
+        $self->{log}->addLine("Connection to PG:\n$query");
         my @results = @{$self->{postgresConnector}->query($query)};
 
         ## re-using an already existing table to stage our results into.
@@ -326,11 +251,11 @@ sub translateShortCodes
         {
             my @row = @{$_};
             $query .= "( ?, ? , ? ),\n";
-            push @vals, ($randomHash, trim(@row[1]), trim(@row[2]));
+            push @vals, ($randomHash, $self->trim(@row[1]), $self->trim(@row[2]));
         }
         $query = substr($query,0,-2);
-        $log->addLine($query);
-        $log->addLine(Dumper(\@vals));
+        $self->{log}->addLine($query);
+        $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
         
         $query = "
@@ -346,8 +271,8 @@ sub translateShortCodes
         cluster.name = ? and
         bnl_stage.working_hash = ?";
         @vals = ($self->{name}, $randomHash);
-        $log->addLine($query);
-        $log->addLine(Dumper(\@vals));
+        $self->{log}->addLine($query);
+        $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
 
         ## And clear out our staging table
@@ -356,13 +281,260 @@ sub translateShortCodes
         WHERE
         working_hash = ?
         ";
-        $log->addLine($query);
+        $self->{log}->addLine($query);
         @vals = ($randomHash);
-        $log->addLine(Dumper(\@vals));
+        $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
         undef @vals;
     }
 }
+
+sub handleReportSelection
+{
+    my ($self) = @_[0];
+    my $selection = @_[1];
+print "handleReportSelection\n";
+    my @frameSearchElements = ('TOTAL circulation', 'Choose a STARTING and ENDING month');
+        
+    if(!$self->switchToFrame(\@frameSearchElements))
+    {   
+        my $owning = $self->{driver}->execute_script("
+            var doms = document.getElementsByTagName('td');
+            var stop = 0;
+            for(var i=0;i<doms.length;i++)
+            {
+                if(!stop)
+                {
+                    var thisaction = doms[i].innerHTML;
+
+                    if(thisaction.match(/".$selection."/gi))
+                    {
+                        doms[i].getElementsByTagName('input')[0].click();
+                        stop = 1;
+                    }
+                }
+            }
+            if(!stop)
+            {
+                return 'didnt find the button';
+            }
+
+            ");
+        sleep 1;
+        $owning = $self->{driver}->execute_script("
+            var doms = document.getElementsByTagName('form');
+            for(var i=0;i<doms.length;i++)
+            {
+                doms[i].submit();
+            }
+        ");
+        sleep 1;
+        $self->{driver}->switch_to_frame();
+        my $finished = handleReportSelection_processing_waiting($self);
+        $self->takeScreenShot('handleReportSelection');
+        return $finished;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+sub handleReportSelection_processing_waiting
+{
+    my ($self) = @_[0];
+    my $count = @_[1] || 0 ;
+print "handleReportSelection_processing_waiting\n";
+    my @frameSearchElements = ('This statistical report is calculating');
+    my $error = $self->switchToFrame(\@frameSearchElements);
+    print "switch to frame = $error\n";
+    if(!$error) ## will only exist while server is processing the request
+    {
+        if($count < 10) # only going to try this 10 times
+        {
+            my $owning = $self->{driver}->execute_script("
+                var doms = document.getElementsByTagName('form');
+                for(var i=0;i<doms.length;i++)
+                {
+                    doms[i].submit();
+                }
+            ");
+            sleep 1;
+            $self->{driver}->switch_to_frame();
+            $count++;
+            my $worked = handleReportSelection_processing_waiting($self,$count);
+            return $worked;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    else
+    {
+        return 1;
+    }
+}
+
+
+sub handleLandingPage
+{
+    my ($self) = @_[0];
+    print "handleLandingPage\n";
+    my @frameSearchElements = ('Circ Activity', '<b>CIRCULATION<\/b>');
+        
+    if(!$self->switchToFrame(\@frameSearchElements))
+    {
+        my @forms = $self->{driver}->find_elements('//form');
+        foreach(@forms)
+        {
+            $thisForm = $_;
+            if($thisForm->get_attribute("action") =~ /\/managerep\/startviews\/0\/d\/table_1x1/g )
+            {
+                $thisForm->submit();
+            }
+        }
+        
+        sleep 1;
+        $self->{driver}->switch_to_frame();
+        $self->takeScreenShot('handleLandingPage');
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+sub handleCircStatOwningHome
+{
+    my ($self) = shift;
+    my $clickAllActivityFirst = shift|| 0;
+print "handleCircStatOwningHome\n";
+
+    my @frameSearchElements = ('Owning\/Home', 'htcircrep\/owning\/\/o\|\|\|\|\|\/');
+
+    if($clickAllActivityFirst)
+    {
+        if(!$self->switchToFrame(\@frameSearchElements))
+        {   
+            my $owning = $self->{driver}->execute_script("
+                var doms = document.getElementsByTagName('a');
+                var stop = 0;
+                for(var i=0;i<doms.length;i++)
+                {
+                    if(!stop)
+                    {
+                        var thisaction = doms[i].getAttribute('href');
+
+                        if(thisaction.match(/htcircrep\\/activity\\/\\/a0\\|y1\\|s\\|1\\|\\|/g))
+                        {
+                            doms[i].click();
+                            stop = 1;
+                        }
+                    }
+                }
+                if(!stop)
+                {
+                    return 'didnt find the button';
+                }
+
+                ");
+                sleep 1;
+                $self->{driver}->switch_to_frame();
+                $self->takeScreenShot('handleCircStatOwningHome_clickAllActivityFirst');
+        }
+    }
+
+    
+    if(!$self->switchToFrame(\@frameSearchElements))
+    {   
+        my $owning = $self->{driver}->execute_script("
+            var doms = document.getElementsByTagName('a');
+            var stop = 0;
+            for(var i=0;i<doms.length;i++)
+            {
+                if(!stop)
+                {
+                    var thisaction = doms[i].getAttribute('onClick');
+
+                    if(thisaction.match(/htcircrep\\/owning\\/\\/o\\|\\|\\|\\|\\|\\//g))
+                    {
+                        doms[i].click();
+                        stop = 1;
+                    }
+                }
+            }
+            if(!stop)
+            {
+                return 'didnt find the button';
+            }
+
+            ");
+        sleep 1;
+        $owning = $self->{driver}->execute_script("
+            var doms = document.getElementsByTagName('form');
+            for(var i=0;i<doms.length;i++)
+            {
+                doms[i].submit();
+            }
+        ");
+        sleep 1;
+        $self->{driver}->switch_to_frame();
+        $self->takeScreenShot('handleCircStatOwningHome');
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+sub handleLoginPage
+{
+print "handleLoginPage\n";
+    my ($self) = @_[0];
+    my $body = $self->{driver}->execute_script("return document.getElementsByTagName('html')[0].innerHTML");
+    $body =~ s/[\r\n]//g;
+    # $self->{log}->addLine("Body of the HTML: " . Dumper($body));
+    if( ($body =~ m/<td>Initials<\/td>/) && ($body =~ m/<td>Password<\/td>/)  )
+    {
+        my @forms = $self->{driver}->find_elements('//form');
+        foreach(@forms)
+        {
+            $thisForm = $_;
+            if($thisForm->get_attribute("action") =~ /\/htcircrep\/\/\-1\/\/VALIDATE/g )
+            {
+                my $circActivty = $self->{driver}->execute_script("
+                var doms = document.getElementsByTagName('input');
+                for(var i=0;i<doms.length;i++)
+                {
+                    var thisaction = doms[i].getAttribute('name');
+
+                    if(thisaction.match(/NAME/g))
+                    {
+                        doms[i].value = '".$self->{webLogin}."';
+                    }
+                    if(thisaction.match(/CODE/g))
+                    {
+                        doms[i].value = '".$self->{webPass}."';
+                    }
+                }
+
+                ");                
+                $thisForm->submit();
+                sleep 1;                
+                $self->takeScreenShot('handleLoginPage');
+            }
+        }
+    }
+    else
+    {
+        print "no login page found";
+    }
+    return 1;  # always return true even when it doesn't prompt to login
+}
+
 
 
 1;

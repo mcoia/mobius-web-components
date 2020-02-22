@@ -33,7 +33,9 @@ our $log;
 our $drupalconfig;
 our $debug = 0;
 our $recreateDB = 0;
-our $dbSeed;
+our $dbSeed,
+our $blindDate = 0;
+our $monthsBack = 1;
 
 
     
@@ -42,7 +44,9 @@ GetOptions (
 "drupal-config=s" => \$drupalconfig,
 "debug" => \$debug,
 "recreateDB" => \$recreateDB,
-"dbSeed=s" => \$dbSeed
+"dbSeed=s" => \$dbSeed,
+"blindDate" => \$blindDate,
+"monthsBack=s" => \$monthsBack
 )
 or die("Error in command line arguments\nYou can specify
 --log path_to_log_output.log                  [Path to the log output file - required]
@@ -50,6 +54,8 @@ or die("Error in command line arguments\nYou can specify
 --debug                                       [Cause more log output]
 --recreateDB                                  [Deletes the tables and recreates them]
 --dbSeed                                      [DB Seed file - populating the base data]
+--blindDate                                   [Should the software re-generate previously generated datasets]
+--monthsBack                                  [How far back should we gather data Integer in months. Default is 1]
 \n");
 
 
@@ -86,7 +92,7 @@ $writePid->truncFile("running");
 my $cwd = getcwd();
 
 
-my $cluster = new sierraCluster('archway',$dbHandler,$stagingTablePrefix,$driver,$cwd,$log);
+my $cluster = new sierraCluster('archway',$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log);
 
 $cluster->scrape(\@dateScrapes);
     
