@@ -21,6 +21,7 @@ use Getopt::Long;
 use Cwd;
 
 use sierraCluster;
+use innreachServer;
 
 our $stagingTablePrefix = "mobius_bnl";
 our $pidfile = "/tmp/bnl_import.pl.pid";
@@ -91,15 +92,55 @@ $writePid->truncFile("running");
 
 my $cwd = getcwd();
 
-
-my $cluster = new sierraCluster('archway',$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log);
-
-$cluster->scrape(\@dateScrapes);
-    
+my @all = @{getClusters()};
+if(@all[1])
+{
+    my @order = @{@all[1]};
+    my %clusters = %{@all[0]};
+    print "Months Back $monthsBack\n";
+    foreach(@order)
+    {
+        print "Processing: $_\n";
+        my $cluster;
+        if($clusters{$_} =~ m/sierra/)  ## Right now, there are two typs: sierra and innreach
+        {
+            $cluster = new sierraCluster($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log);
+        }
+        else
+        {
+            $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log);
+        }
+        $cluster->scrape();
+    }
+}   
 
 undef $writePid;
 closeBrowser();
 $log->addLogLine("****************** Ending ******************");
+
+sub getClusters
+{
+    my @ret = ();
+    my %clusters = ();
+    my @order = ();
+    my $query = "
+    SELECT
+    name,type
+    FROM
+    $stagingTablePrefix"."_cluster
+    order by 2 desc,1
+    ";
+    $log->addLogLine($query);
+    my @results = @{$dbHandler->query($query)};
+    foreach(@results)
+    {
+        my @row = @{$_};
+        $clusters{@row[0]} = @row[1];
+        push @order, @row[0];
+    }
+    @ret = (\%clusters,\@order);
+    return \@ret;
+}
 
 sub escapeData
 {

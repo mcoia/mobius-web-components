@@ -13,11 +13,8 @@ use parent iiiServer;
 sub scrape
 {
     my ($self) = shift;
-    my $monthsBack = shift || 5;
-
     my @dateScrapes = @{$self->figureWhichDates()};
-    
-    if(!$self->{error})
+    if(!$self->{error} && @dateScrapes[0])
     {
         $self->{log}->addLine("Getting " . $self->{webURL});
         $self->{driver}->get($self->{webURL});
@@ -25,20 +22,17 @@ sub scrape
         $self->takeScreenShot('pageload');
         my $continue = handleLandingPage($self);
         $continue = handleLoginPage($self) if $continue;
-        if(@dateScrapes[0])
+        $continue = handleCircStatOwningHome($self) if $continue;
+        my @pageVals = @{@dateScrapes[0]};
+        my @dbvals = @{@dateScrapes[1]};
+        my $pos = 0;
+        foreach(@pageVals)
         {
-            $continue = handleCircStatOwningHome($self) if $continue;
-            my @pageVals = @{@dateScrapes[0]};
-            my @dbvals = @{@dateScrapes[1]};
-            my $pos = 0;
-            foreach(@pageVals)
-            {
-                $continue = handleReportSelection($self,$_) if $continue;
-                print "Pulling ". @dbvals[$pos] ."\n";
-                collectReportData($self, @dbvals[$pos]) if $continue;
-                $pos++;
-                $continue = handleCircStatOwningHome($self,1) if $continue;
-            }
+            print $self->{name}." pulling ". @dbvals[$pos] ."\n";
+            $continue = handleReportSelection($self,$_) if $continue;
+            collectReportData($self, @dbvals[$pos]) if $continue;
+            $pos++;
+            $continue = handleCircStatOwningHome($self,1) if $continue;
         }
     }
 }
@@ -47,139 +41,11 @@ sub collectReportData
 {
     my ($self) = shift;
     my $dbDate = shift;
-print "collectReportData\n";
     my @frameSearchElements = ('HOME LIBRARY TOTAL CIRCULATION');
         
     if(!$self->switchToFrame(\@frameSearchElements))
     {
         my $randomHash = $self->SUPER::collectReportData($dbDate);
-        # now we need to create a branch for any potiential new branches/institutions
-        
-        my $query = "INSERT INTO $self->{prefix}"."_branch
-        (cluster,institution,shortname)
-        SELECT DISTINCT cluster.id,concat('unknown_',trim(bnl_stage.owning_lib)),trim(bnl_stage.owning_lib)
-        FROM
-        $self->{prefix}"."_bnl_stage bnl_stage,
-        $self->{prefix}"."_cluster cluster
-        WHERE
-        bnl_stage.working_hash = ? and
-        cluster.name = ? and
-        concat(cluster.id,'-',trim(bnl_stage.owning_lib)) not in(
-            select
-            concat(cluster,'-',shortname)
-            from
-            $self->{prefix}"."_branch
-        )";
-        my @vals = ($randomHash,$self->{name});
-        $self->{log}->addLine($query);
-        $self->{log}->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
-        
-        
-        # Now with borrowing lib        
-        $query = "INSERT INTO $self->{prefix}"."_branch
-        (cluster,institution,shortname)
-        SELECT DISTINCT cluster.id,concat('unknown_',trim(bnl_stage.borrowing_lib)),trim(bnl_stage.borrowing_lib)
-        FROM
-        $self->{prefix}"."_bnl_stage bnl_stage,
-        $self->{prefix}"."_cluster cluster
-        WHERE
-        bnl_stage.working_hash = ? and
-        cluster.name = ? and
-        concat(cluster.id,'-',trim(bnl_stage.borrowing_lib)) not in(
-            select
-            concat(cluster,'-',shortname)
-            from
-            $self->{prefix}"."_branch
-        )";
-        @vals = ($randomHash,$self->{name});
-        $self->{log}->addLine($query);
-        $self->{log}->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
-        
-        # Now that the branches exist and have an ID number, we can migrate from the staging table into production
-        ## Delete any conflicting rows
-        $query = "
-        DELETE 
-        bnl_conflict
-        FROM
-        $self->{prefix}"."_bnl bnl_conflict,
-        (
-        SELECT
-        CONCAT(
-        cluster.id,'-',
-        owning_branch_table.id,'-',
-        cluster.id,'-',
-        borrowing_branch_table.id,'-',
-        bnl_stage.borrow_date
-        ) as \"together\"
-        FROM
-        $self->{prefix}"."_bnl_stage bnl_stage,
-        $self->{prefix}"."_branch owning_branch_table,
-        $self->{prefix}"."_branch borrowing_branch_table,
-        $self->{prefix}"."_cluster cluster
-        WHERE
-        bnl_stage.working_hash = ? and
-        cluster.name = ? and
-        owning_branch_table.shortname = bnl_stage.owning_lib and
-        owning_branch_table.cluster = cluster.id and
-        borrowing_branch_table.shortname = bnl_stage.borrowing_lib and
-        borrowing_branch_table.cluster = cluster.id
-        ) as thejoiner
-        WHERE
-        CONCAT(
-        bnl_conflict.owning_cluster,'-',
-        bnl_conflict.owning_branch,'-',
-        bnl_conflict.borrowing_cluster,'-',
-        bnl_conflict.borrowing_branch, '-',
-        borrow_date
-        ) 
-        =  thejoiner.together
-        ";
-        $self->{log}->addLine($query);
-        $self->{log}->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
-        
-        
-        ## Make the final insert
-        $query = "
-        INSERT INTO $self->{prefix}"."_bnl
-        (owning_cluster,owning_branch,borrowing_cluster,borrowing_branch,quantity,borrow_date)
-        SELECT 
-        DISTINCT
-        cluster.id,
-        owning_branch_table.id,
-        cluster.id,
-        borrowing_branch_table.id,
-        bnl_stage.quantity,
-        bnl_stage.borrow_date
-        FROM
-        $self->{prefix}"."_bnl_stage bnl_stage,
-        $self->{prefix}"."_branch owning_branch_table,
-        $self->{prefix}"."_branch borrowing_branch_table,
-        $self->{prefix}"."_cluster cluster
-        WHERE
-        bnl_stage.working_hash = ? and
-        cluster.name = ? and
-        owning_branch_table.shortname = bnl_stage.owning_lib and
-        owning_branch_table.cluster = cluster.id and
-        borrowing_branch_table.shortname = bnl_stage.borrowing_lib and
-        borrowing_branch_table.cluster = cluster.id
-        ";
-        $self->{log}->addLine($query);
-        $self->{log}->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
-
-        ## And clear out our staging table
-        $query = "
-        DELETE FROM $self->{prefix}"."_bnl_stage
-        WHERE
-        working_hash = ?
-        ";
-        $self->{log}->addLine($query);
-        @vals = ($randomHash);
-        $self->{log}->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
 
         ## Attempt to correct any unknown branches
         translateShortCodes($self);
@@ -194,18 +60,8 @@ sub translateShortCodes
 {
     my ($self) = shift;
     
-    my $worked = 1;
-    
-    # make sure we even need to bother
-    my $query = "
-    select * from
-    $self->{prefix}"."_branch
-    where
-    institution like 'unknown_%' limit 1";
-    $self->{log}->addLine($query);
-    my @results = @{$self->{dbHandler}->query($query)};
-    $worked  = 0 if($#results < 0);
-    if( (!$self->{postgresConnector}) && $worked )
+    my $worked = 0;
+    if( !$self->{postgresConnector})
     {
         try
         {
@@ -293,7 +149,6 @@ sub handleReportSelection
 {
     my ($self) = @_[0];
     my $selection = @_[1];
-print "handleReportSelection\n";
     my @frameSearchElements = ('TOTAL circulation', 'Choose a STARTING and ENDING month');
         
     if(!$self->switchToFrame(\@frameSearchElements))
@@ -343,15 +198,14 @@ print "handleReportSelection\n";
 sub handleReportSelection_processing_waiting
 {
     my ($self) = @_[0];
-    my $count = @_[1] || 0 ;
-print "handleReportSelection_processing_waiting\n";
+    $count = 0;
     my @frameSearchElements = ('This statistical report is calculating');
-    my $error = $self->switchToFrame(\@frameSearchElements);
-    print "switch to frame = $error\n";
-    if(!$error) ## will only exist while server is processing the request
+    while($count < 10)
     {
-        if($count < 10) # only going to try this 10 times
+        my $error = $self->switchToFrame(\@frameSearchElements);
+        if(!$error) ## will only exist while server is processing the request
         {
+            print "Having to wait for server to process: $count\n";
             my $owning = $self->{driver}->execute_script("
                 var doms = document.getElementsByTagName('form');
                 for(var i=0;i<doms.length;i++)
@@ -362,25 +216,18 @@ print "handleReportSelection_processing_waiting\n";
             sleep 1;
             $self->{driver}->switch_to_frame();
             $count++;
-            my $worked = handleReportSelection_processing_waiting($self,$count);
-            return $worked;
         }
         else
         {
-            return 0;
+            return 1;
         }
     }
-    else
-    {
-        return 1;
-    }
+    return 0;
 }
-
 
 sub handleLandingPage
 {
     my ($self) = @_[0];
-    print "handleLandingPage\n";
     my @frameSearchElements = ('Circ Activity', '<b>CIRCULATION<\/b>');
         
     if(!$self->switchToFrame(\@frameSearchElements))
@@ -410,7 +257,6 @@ sub handleCircStatOwningHome
 {
     my ($self) = shift;
     my $clickAllActivityFirst = shift|| 0;
-print "handleCircStatOwningHome\n";
 
     my @frameSearchElements = ('Owning\/Home', 'htcircrep\/owning\/\/o\|\|\|\|\|\/');
 
@@ -492,7 +338,6 @@ print "handleCircStatOwningHome\n";
 
 sub handleLoginPage
 {
-print "handleLoginPage\n";
     my ($self) = @_[0];
     my $body = $self->{driver}->execute_script("return document.getElementsByTagName('html')[0].innerHTML");
     $body =~ s/[\r\n]//g;

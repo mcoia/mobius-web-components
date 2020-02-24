@@ -38,7 +38,7 @@ sub new
     {
         # $self->{log}->addLine("Before: ".Dumper($self));
         $self = getClusterVars($self); 
-        $self->{log}->addLine("after: ".Dumper($self));
+        # $self->{log}->addLine("after: ".Dumper($self));
     }
     else
     {
@@ -52,7 +52,6 @@ sub collectReportData
 {
     my ($self) = shift;
     my $dbDate = shift;
-print "collectReportData parent\n";
 # Setup collection Variables
     my @borrowingLibs = ();
     my %borrowingMap = ();
@@ -68,7 +67,7 @@ print "collectReportData parent\n";
     $self->{log}->addLine("Got this: $owning");
     my $rowNum = 0;
     pQuery("tr",$owning)->each(sub {
-        if($rowNum > 0) ## Skipping the title row
+        if($rowNum > 0) ## Skipping the title row  -- ad this to get a smaller sample of data  && $rowNum < 10
         {
             my $i = shift;
             my $row = $_;
@@ -107,7 +106,6 @@ print "collectReportData parent\n";
 
     # Spidered the table - now saving it to storage
     my $randomHash = $self->generateRandomString(12);
-    print "Random hash = $randomHash\n";
     my @vals = ();
     my $query = "INSERT INTO 
     $self->{prefix}"."_bnl_stage
@@ -124,9 +122,141 @@ print "collectReportData parent\n";
         }
     }
     $query = substr($query,0,-2);
-    $self->{log}->addLine($query);
+    # $self->{log}->addLine($query);
     # $self->{log}->addLine(Dumper(\@vals));
     $self->{dbHandler}->updateWithParameters($query,\@vals);
+    
+    # now we need to create a branch for any potiential new branches/institutions
+        
+    my $query = "INSERT INTO $self->{prefix}"."_branch
+    (cluster,institution,shortname)
+    SELECT DISTINCT cluster.id,trim(bnl_stage.owning_lib),trim(bnl_stage.owning_lib)
+    FROM
+    $self->{prefix}"."_bnl_stage bnl_stage,
+    $self->{prefix}"."_cluster cluster
+    WHERE
+    bnl_stage.working_hash = ? and
+    cluster.name = ? and
+    concat(cluster.id,'-',trim(bnl_stage.owning_lib)) not in(
+        select
+        concat(cluster,'-',shortname)
+        from
+        $self->{prefix}"."_branch
+    )
+    and length(trim(bnl_stage.owning_lib)) > 0
+    ";
+    @vals = ($randomHash,$self->{name});
+    $self->{log}->addLine($query);
+    $self->{log}->addLine(Dumper(\@vals));
+    $self->{dbHandler}->updateWithParameters($query,\@vals);
+    
+    
+    # Now with borrowing lib        
+    $query = "INSERT INTO $self->{prefix}"."_branch
+    (cluster,institution,shortname)
+    SELECT DISTINCT cluster.id,trim(bnl_stage.borrowing_lib),trim(bnl_stage.borrowing_lib)
+    FROM
+    $self->{prefix}"."_bnl_stage bnl_stage,
+    $self->{prefix}"."_cluster cluster
+    WHERE
+    bnl_stage.working_hash = ? and
+    cluster.name = ? and
+    concat(cluster.id,'-',trim(bnl_stage.borrowing_lib)) not in(
+        select
+        concat(cluster,'-',shortname)
+        from
+        $self->{prefix}"."_branch
+    )
+    and length(trim(bnl_stage.borrowing_lib)) > 0
+    ";
+    $self->{log}->addLine($query);
+    $self->{log}->addLine(Dumper(\@vals));
+    $self->{dbHandler}->updateWithParameters($query,\@vals);
+    
+    # Now that the branches exist and have an ID number, we can migrate from the staging table into production
+    ## Delete any conflicting rows
+    $query = "
+    DELETE 
+    bnl_conflict
+    FROM
+    $self->{prefix}"."_bnl bnl_conflict,
+    (
+    SELECT
+    CONCAT(
+    cluster.id,'-',
+    owning_branch_table.id,'-',
+    cluster.id,'-',
+    borrowing_branch_table.id,'-',
+    bnl_stage.borrow_date
+    ) as \"together\"
+    FROM
+    $self->{prefix}"."_bnl_stage bnl_stage,
+    $self->{prefix}"."_branch owning_branch_table,
+    $self->{prefix}"."_branch borrowing_branch_table,
+    $self->{prefix}"."_cluster cluster
+    WHERE
+    bnl_stage.working_hash = ? and
+    cluster.name = ? and
+    owning_branch_table.shortname = bnl_stage.owning_lib and
+    owning_branch_table.cluster = cluster.id and
+    borrowing_branch_table.shortname = bnl_stage.borrowing_lib and
+    borrowing_branch_table.cluster = cluster.id
+    ) as thejoiner
+    WHERE
+    CONCAT(
+    bnl_conflict.owning_cluster,'-',
+    bnl_conflict.owning_branch,'-',
+    bnl_conflict.borrowing_cluster,'-',
+    bnl_conflict.borrowing_branch, '-',
+    borrow_date
+    ) 
+    =  thejoiner.together
+    ";
+    $self->{log}->addLine($query);
+    $self->{log}->addLine(Dumper(\@vals));
+    $self->{dbHandler}->updateWithParameters($query,\@vals);
+    
+    
+    ## Make the final insert
+    $query = "
+    INSERT INTO $self->{prefix}"."_bnl
+    (owning_cluster,owning_branch,borrowing_cluster,borrowing_branch,quantity,borrow_date)
+    SELECT 
+    DISTINCT
+    cluster.id,
+    owning_branch_table.id,
+    cluster.id,
+    borrowing_branch_table.id,
+    bnl_stage.quantity,
+    bnl_stage.borrow_date
+    FROM
+    $self->{prefix}"."_bnl_stage bnl_stage,
+    $self->{prefix}"."_branch owning_branch_table,
+    $self->{prefix}"."_branch borrowing_branch_table,
+    $self->{prefix}"."_cluster cluster
+    WHERE
+    bnl_stage.working_hash = ? and
+    cluster.name = ? and
+    owning_branch_table.shortname = bnl_stage.owning_lib and
+    owning_branch_table.cluster = cluster.id and
+    borrowing_branch_table.shortname = bnl_stage.borrowing_lib and
+    borrowing_branch_table.cluster = cluster.id
+    ";
+    $self->{log}->addLine($query);
+    $self->{log}->addLine(Dumper(\@vals));
+    $self->{dbHandler}->updateWithParameters($query,\@vals);
+
+    ## And clear out our staging table
+    $query = "
+    DELETE FROM $self->{prefix}"."_bnl_stage
+    WHERE
+    working_hash = ?
+    ";
+    $self->{log}->addLine($query);
+    @vals = ($randomHash);
+    $self->{log}->addLine(Dumper(\@vals));
+    $self->{dbHandler}->updateWithParameters($query,\@vals);
+
     undef $borrowingMap;
     undef $query;
     undef @vals;
@@ -177,8 +307,7 @@ sub getClusterVars
 sub figureWhichDates
 {
     my ($self) = shift;
-    my $monthsBack = shift || $self->{monthsBack} || 5;    
-    print "going back $monthsBack\n";
+    my $monthsBack = $self->{monthsBack} || 5;
     $monthsBack++;
     my %alreadyScraped = ();
     
@@ -250,7 +379,6 @@ sub figureWhichDates
 
 sub switchToFrame
 {
-print "switchToFrame\n";
     my ($self) = @_[0];
     my @pageVals = @{@_[1]};
     my $frameNum = 0;
@@ -309,7 +437,9 @@ sub takeScreenShot
     my ($self) = shift;
     my $action = shift;
     $screenShotStep++;
-    $self->{driver}->capture_screenshot("$screenshotDIR/".$self->{name}."_".$screenShotStep."_".$action.".png", {'full' => 1});
+    # $self->{log}->addLine("screenshot self: ".Dumper($self));
+    # print "ScreenShot: ".$self->{screenshotDIR}."/".$self->{name}."_".$screenShotStep."_".$action.".png\n";
+    $self->{driver}->capture_screenshot($self->{screenshotDIR}."/".$self->{name}."_".$screenShotStep."_".$action.".png", {'full' => 1});
 }
 
 
