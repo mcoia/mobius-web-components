@@ -142,8 +142,9 @@ sub collectReportData
         concat(cluster,'-',shortname)
         from
         $self->{prefix}"."_branch
-    )
-    and length(trim(bnl_stage.owning_lib)) > 0
+    ) and
+    length(trim(bnl_stage.owning_lib)) > 0 and
+    lower(trim(bnl_stage.owning_lib) not in ('total')
     ";
     @vals = ($randomHash,$self->{name});
     $self->{log}->addLine($query);
@@ -166,8 +167,9 @@ sub collectReportData
         concat(cluster,'-',shortname)
         from
         $self->{prefix}"."_branch
-    )
-    and length(trim(bnl_stage.borrowing_lib)) > 0
+    ) and
+    length(trim(bnl_stage.borrowing_lib)) > 0 and
+    lower(trim(bnl_stage.borrowing_lib) not in ('total')
     ";
     $self->{log}->addLine($query);
     $self->{log}->addLine(Dumper(\@vals));
