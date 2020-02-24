@@ -210,20 +210,27 @@ sub createDatabase
 
     if($recreateDB)
     {
+        my $query = "DROP TABLE $stagingTablePrefix"."_ignore_name ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP TABLE $stagingTablePrefix"."_normalize_branch_name ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_bnl_stage ";
         $log->addLine($query);
         $dbHandler->update($query);
-        my $query = "DROP TABLE $stagingTablePrefix"."_bnl ";
+        my $query = "DROP TABLE $stagingTablePrefix"."_bnl";
         $log->addLine($query);
         $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_branch ";
         $log->addLine($query);
         $dbHandler->update($query);
+        my $query = "DROP TABLE $stagingTablePrefix"."_branch_name_final ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_cluster ";
         $log->addLine($query);
         $dbHandler->update($query);
-        
-        
     }
 
     my @exists = @{$dbHandler->query("SELECT table_name FROM information_schema.tables WHERE table_schema RLIKE '$databaseName' AND table_name RLIKE '$stagingTablePrefix'")};
@@ -246,14 +253,26 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
+        $query = "CREATE TABLE $stagingTablePrefix"."_branch_name_final (
+        id int not null auto_increment,
+        name varchar(100),
+        PRIMARY KEY (id),
+        UNIQUE INDEX (name)
+        )
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
         $query = "CREATE TABLE $stagingTablePrefix"."_branch (
         id int not null auto_increment,
         cluster int,
         institution varchar(100),
         shortname varchar(100),
+        final_branch int,
         PRIMARY KEY (id),
         UNIQUE INDEX (cluster, shortname),
+        FOREIGN KEY (final_branch) REFERENCES $stagingTablePrefix"."_branch_name_final(id) ON DELETE CASCADE,
         FOREIGN KEY (cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE
         )
         ";
@@ -282,7 +301,7 @@ sub createDatabase
         
         $query = "CREATE TABLE $stagingTablePrefix"."_bnl_stage (
         id int not null auto_increment,
-        working_hash varchar(100),
+        working_hash varchar(50),
         owning_lib varchar(100),
         borrowing_lib varchar(100),
         quantity int,
@@ -293,7 +312,26 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
+        $query = "CREATE TABLE $stagingTablePrefix"."_normalize_branch_name (
+        id int not null auto_increment,
+        variation varchar(100),
+        normalized varchar(100),
+        PRIMARY KEY (id)
+        )
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "CREATE TABLE $stagingTablePrefix"."_ignore_name (
+        id int not null auto_increment,
+        name varchar(100),
+        PRIMARY KEY (id)
+        )
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
         seedDB($dbSeed) if $dbSeed;
     }
     else
@@ -308,10 +346,7 @@ sub seedDB
     my $readFile = new Loghandler($seedFile);
     $log->addLine("Reading seeDB File $seedFile");
     my @lines = @{$readFile->readFile()};
-    my @tables = (
-    'cluster'
-    );
-    
+
     my $currTable = '';
     my @cols = ();
     my $insertQuery = "";
@@ -322,7 +357,7 @@ sub seedDB
         $line = trim($line);
         if($line =~ m/^\[/)
         {
-            if( ($#cols > 0) && ($#datavals > -1) )
+            if( ($#cols > -1) && ($#datavals > -1) )
             {
                 # execute the insert
                 @flatVals = ();
@@ -345,6 +380,7 @@ sub seedDB
                 $log->addLine($insertLog);
                 $dbHandler->updateWithParameters($insertQuery,\@flatVals);
                 undef @flatVals;
+                @datavals = ();
             }
             $log->addLine("seedDB: Detected cluster delcaration") if $debug;
             $currTable = $line;
@@ -386,7 +422,7 @@ sub seedDB
             }
         }
     }
-    if( ($#cols > 0) && ($#datavals > -1) )
+    if( ($#cols > -1) && ($#datavals > -1) )
     {
         # execute the insert
         @flatVals = ();

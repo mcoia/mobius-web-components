@@ -49,6 +49,8 @@ sub collectReportData
 
         ## Attempt to correct any unknown branches
         translateShortCodes($self);
+        
+        $self->SUPER::normalizeNames();
     }
     else
     {
@@ -241,8 +243,7 @@ sub handleLandingPage
                 $thisForm->submit();
             }
         }
-        
-        sleep 1;
+        sleep 2;
         $self->{driver}->switch_to_frame();
         $self->takeScreenShot('handleLandingPage');
         return 1;
@@ -366,7 +367,7 @@ sub handleLoginPage
                     }
                 }
 
-                ");                
+                ");
                 $thisForm->submit();
                 sleep 1;                
                 $self->takeScreenShot('handleLoginPage');
@@ -376,6 +377,7 @@ sub handleLoginPage
     else
     {
         print "no login page found";
+        return 0;
     }
     return 1;  # always return true even when it doesn't prompt to login
 }

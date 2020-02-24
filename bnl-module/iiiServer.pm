@@ -44,6 +44,7 @@ sub new
     {
         $self->{error} = 1;
     }
+    $screenShotStep = 0;
     bless $self, $class;
     return $self;
 }
@@ -144,11 +145,12 @@ sub collectReportData
         $self->{prefix}"."_branch
     ) and
     length(trim(bnl_stage.owning_lib)) > 0 and
-    lower(trim(bnl_stage.owning_lib) not in ('total')
+    lower(trim(bnl_stage.owning_lib)) not in (select lower(trim(name)) from  $self->{prefix}"."_ignore_name)
     ";
     @vals = ($randomHash,$self->{name});
     $self->{log}->addLine($query);
-    $self->{log}->addLine(Dumper(\@vals));
+    # $self->{log}->addLine(Dumper(\@vals));
+    print "inserting into $self->{prefix}"."_branch\n";
     $self->{dbHandler}->updateWithParameters($query,\@vals);
     
     
@@ -169,10 +171,11 @@ sub collectReportData
         $self->{prefix}"."_branch
     ) and
     length(trim(bnl_stage.borrowing_lib)) > 0 and
-    lower(trim(bnl_stage.borrowing_lib) not in ('total')
+    lower(trim(bnl_stage.borrowing_lib)) not in (select lower(trim(name)) from  $self->{prefix}"."_ignore_name)
     ";
     $self->{log}->addLine($query);
-    $self->{log}->addLine(Dumper(\@vals));
+    # $self->{log}->addLine(Dumper(\@vals));
+    print "inserting into $self->{prefix}"."_branch\n";
     $self->{dbHandler}->updateWithParameters($query,\@vals);
     
     # Now that the branches exist and have an ID number, we can migrate from the staging table into production
@@ -216,6 +219,7 @@ sub collectReportData
     ";
     $self->{log}->addLine($query);
     $self->{log}->addLine(Dumper(\@vals));
+    print "DELETE $self->{prefix}"."_bnl\n";
     $self->{dbHandler}->updateWithParameters($query,\@vals);
     
     
@@ -245,7 +249,8 @@ sub collectReportData
     borrowing_branch_table.cluster = cluster.id
     ";
     $self->{log}->addLine($query);
-    $self->{log}->addLine(Dumper(\@vals));
+    # $self->{log}->addLine(Dumper(\@vals));
+    print "INSERT INTO $self->{prefix}"."_bnl\n";
     $self->{dbHandler}->updateWithParameters($query,\@vals);
 
     ## And clear out our staging table
@@ -257,12 +262,79 @@ sub collectReportData
     $self->{log}->addLine($query);
     @vals = ($randomHash);
     $self->{log}->addLine(Dumper(\@vals));
+    print "DELETE FROM $self->{prefix}"."_bnl_stage\n";
     $self->{dbHandler}->updateWithParameters($query,\@vals);
 
     undef $borrowingMap;
     undef $query;
     undef @vals;
     return $randomHash;
+}
+
+sub normalizeNames
+{
+    my ($self) = shift;
+
+    my $query = "
+    INSERT INTO ".$self->{prefix}."_branch_name_final
+    (name)
+    SELECT DISTINCT
+    nbn.normalized    
+    FROM
+    ".$self->{prefix}."_normalize_branch_name nbn,
+    ".$self->{prefix}."_branch b
+    WHERE
+    nbn.variation = b.institution and
+    nbn.normalized not in(SELECT name FROM ".$self->{prefix}."_branch_name_final )
+    ";
+    $self->{log}->addLine($query);    
+    print "NORMALIZING INSERT INTO ".$self->{prefix}."_branch_name_final\n";
+    $self->{dbHandler}->update($query);
+
+    $query = "
+    insert into  ".$self->{prefix}."_branch_name_final
+    (name)
+    SELECT DISTINCT
+    b.institution
+    FROM
+    ".$self->{prefix}."_branch b
+    where
+    b.institution not in (SELECT variation FROM ".$self->{prefix}."_normalize_branch_name) and
+    b.institution not in(SELECT name FROM ".$self->{prefix}."_branch_name_final )
+    ";
+    $self->{log}->addLine($query);    
+    print "NORMALIZING INSERT INTO ".$self->{prefix}."_branch_name_final\n";
+    $self->{dbHandler}->update($query);
+
+    $query = "
+    UPDATE 
+    ".$self->{prefix}."_branch branch,
+    ".$self->{prefix}."_branch_name_final bnf,
+    ".$self->{prefix}."_normalize_branch_name nbn
+    SET
+    branch.final_branch = bnf.id
+    WHERE
+    nbn.variation = branch.institution and
+    bnf.name = nbn.normalized and
+    branch.final_branch is null
+    ";
+    $self->{log}->addLine($query);    
+    print "UPDATING BRANCH TO FINAL ID through normalization ".$self->{prefix}."_branch_name_final\n";
+    $self->{dbHandler}->update($query);
+
+    $query = "
+    UPDATE 
+    ".$self->{prefix}."_branch branch,
+    ".$self->{prefix}."_branch_name_final bnf
+    SET
+    branch.final_branch = bnf.id
+    WHERE
+    branch.institution = bnf.name and
+    branch.final_branch is null
+    ";
+    $self->{log}->addLine($query);    
+    print "UPDATING BRANCH TO FINAL ID without normalization ".$self->{prefix}."_branch_name_final\n";
+    $self->{dbHandler}->update($query);
 }
 
 sub getClusterVars

@@ -45,6 +45,7 @@ sub collectReportData
     if(!$self->switchToFrame(\@frameSearchElements))
     {
         my $randomHash = $self->SUPER::collectReportData($dbDate);
+        $self->SUPER::normalizeNames();
     }
     else
     {
