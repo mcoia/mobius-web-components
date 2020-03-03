@@ -2,29 +2,56 @@
 /**
 * Implements hook_menu().
 */
-function borrowing_n_lending_menu() {
+function bnl_menu() {
   $items['borrowing_n_lending'] = array(
     'title' => 'Borrowing and Lending',
-    'page callback' => 'mobius_borrowing_n_lending_display',
+    'page callback' => 'mobius_bnl_display',
     'access arguments' => array('access content'),
+  );
+  $items['borrowing_n_lending_get'] = array(
+    'title' => 'Borrowing and Lending',
+    'page callback' => 'mobius_bnl_postback',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
   );
   return $items;
 }
 
-function mobius_borrowing_n_lending_display() {
+function mobius_bnl_display() {
   drupal_page_is_cacheable($allow_caching = FALSE);
-
-  $varColDump =  mobius_borrowing_n_lending_generateHTMLTable();
   $page = array (
     '#markup' =>
     '
-    
+    <h1>whatsup</h1>
+    <span id="mobius_bnl_page_is_loaded"></span>
+    <label for="fromdate">From Date</label><input id="fromdate" type="text" />
+    <label for="todate">To Date</label><input id="todate" type="text" />
+    <div id="bnl_table"></div>
+    <div id="bnl_pie"></div>
      '
   );  // end render array
 
   return $page;
 }
 
+function mobius_bnl_postback() {
+    
+    if($_GET['datefrom'] && $_GET['dateto'])
+    {
+        mobius_borrowing_n_lending_json();  // calling headers
+        $data_array = array();
+        $data_array['content']          =   'test';
+        $data_array['hello']          =   $_GET['hello'];
+        echo $data_array = drupal_json_encode($data_array);
+    }
 
+}
+
+function mobius_borrowing_n_lending_json() {
+  drupal_add_http_header('Content-Type', 'application/json');
+  drupal_add_http_header('Access-Control-Allow-Origin', "*");
+  drupal_add_http_header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+ }
+ 
 ?>
 

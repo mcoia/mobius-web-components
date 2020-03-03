@@ -1,4 +1,5 @@
 ; $Id$
 name = Borrowing and Lending
 description = A module that deals with MOBIUS's Borrowing and Lending Statistics.
+scripts[] = bnl.js
 core = 7.x
