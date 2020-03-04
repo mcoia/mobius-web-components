@@ -210,6 +210,9 @@ sub createDatabase
 
     if($recreateDB)
     {
+        my $query = "DROP VIEW $stagingTablePrefix"."_branch_cluster ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_ignore_name ";
         $log->addLine($query);
         $dbHandler->update($query);
@@ -331,6 +334,41 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
+        
+        
+        $query = "CREATE VIEW $stagingTablePrefix"."_branch_cluster 
+        AS
+                select distinct 
+                branch_non_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
+                from
+                mobius_bnl_branch branch_sierra,
+                mobius_bnl_branch branch_non_sierra,
+                mobius_bnl_cluster cluster_sierra,
+                mobius_bnl_cluster cluster_non_sierra,
+                mobius_bnl_branch_name_final final_name
+                where
+                final_name.id = branch_non_sierra.final_branch and
+                branch_sierra.final_branch = final_name.id and
+                branch_non_sierra.cluster = cluster_non_sierra.id and
+                cluster_sierra.id=branch_sierra.cluster and
+                branch_sierra.final_branch = branch_non_sierra.final_branch and
+                cluster_sierra.type !='innreach' and
+                cluster_non_sierra.type='innreach'
+                
+                union all
+                
+                select distinct 
+                branch_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
+                from
+                mobius_bnl_branch branch_sierra,
+                mobius_bnl_cluster cluster_sierra
+                where
+                cluster_sierra.id=branch_sierra.cluster and
+                cluster_sierra.type !='innreach'
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+                
 
         seedDB($dbSeed) if $dbSeed;
     }

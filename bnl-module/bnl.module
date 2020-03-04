@@ -40,11 +40,122 @@ function mobius_bnl_postback() {
     {
         mobius_borrowing_n_lending_json();  // calling headers
         $data_array = array();
-        $data_array['content']          =   'test';
-        $data_array['hello']          =   $_GET['hello'];
+        mobius_bnl_get_bnl_base($data_array);
         echo $data_array = drupal_json_encode($data_array);
     }
 
+}
+
+
+function mobius_bnl_get_bnl_base(&$data_array)
+{
+    $data_array["branch"] = array();
+    $data_array["cluster"] = array();
+    $data_array["amount_branch"] = array();
+    $data_array["amount_cluster"] = array();
+    $data_array["branch_to_cluster"] = array();
+    $gotmore = 1;
+    $offset = 1;
+    $chunk = 1000;
+    $totalRows = 0;
+    while($gotmore > 0)
+    {
+        $query = "
+
+           SELECT
+       bnl_borrowing_name.name \"borrowing_branch_name\", bnl_borrowing_name.id \"borrowing_branch_id\",
+       bnl_owning_name.name \"owning_branch_name\", bnl_owning_name.id \"owning_branch_id\",bnl_owning_branch.shortname,
+       borrowing_cluster_ids.cname \"borrowing_cluster_name\",borrowing_cluster_ids.cid \"borrowing_cluster_id\",
+       owning_cluster_ids.cname \"owning_cluster_name\",owning_cluster_ids.cid \"owning_cluster_id\",
+       sum(bnl.quantity) \"quantity\"
+            FROM 
+            mobius_bnl_bnl bnl,
+            mobius_bnl_branch bnl_borrowing_branch,
+            mobius_bnl_branch bnl_owning_branch,
+            mobius_bnl_branch_name_final bnl_borrowing_name,
+            mobius_bnl_branch_name_final bnl_owning_name,
+            mobius_bnl_branch_cluster borrowing_cluster_ids,
+            mobius_bnl_branch_cluster owning_cluster_ids
+            WHERE
+            bnl_borrowing_name.id = bnl_borrowing_branch.final_branch and
+            bnl_owning_name.id = bnl_owning_branch.final_branch and
+            bnl.borrowing_branch = bnl_borrowing_branch.id and
+            bnl.owning_branch = bnl_owning_branch.id and
+            bnl_borrowing_branch.id = borrowing_cluster_ids.sid and
+            bnl_owning_branch.id = owning_cluster_ids.sid and
+            
+            bnl.borrow_date between str_to_date( concat(?,'-01') ,'%Y-%m-%d') and str_to_date( concat(?,'-01') ,'%Y-%m-%d')
+            group by 1,2,3,4,5,6,7,8
+            limit $chunk
+            offset $offset
+            ";
+        $vals = array($_GET['datefrom'],$_GET['dateto']);
+        $result = db_query($query,$vals);
+        while($libraryRow = $result->fetchAssoc())
+        {
+
+            // Stuff the branch names and cluster names
+            if(!$data_array["branch"][$libraryRow["borrowing_branch_id"]])
+            {
+                $data_array["branch"][$libraryRow["borrowing_branch_id"]] = $libraryRow["borrowing_branch_name"];
+            }
+            if(!$data_array["branch"][$libraryRow["owning_branch_id"]])
+            {
+                $data_array["branch"][$libraryRow["owning_branch_id"]] = $libraryRow["owning_branch_name"];
+            }
+            if(!$data_array["cluster"][$libraryRow["borrowing_cluster_id"]])
+            {
+                $data_array["cluster"][$libraryRow["borrowing_cluster_id"]] = $libraryRow["borrowing_cluster_name"];
+            }
+            if(!$data_array["cluster"][$libraryRow["owning_cluster_id"]])
+            {
+                $data_array["cluster"][$libraryRow["owning_cluster_id"]] = $libraryRow["owning_cluster_name"];
+            }
+            
+            // Connect branches to clusters
+            if(!$data_array["branch_to_cluster"][$libraryRow["borrowing_branch_id"]])
+            {
+                $data_array["branch_to_cluster"][$libraryRow["borrowing_branch_id"]] = $libraryRow["borrowing_cluster_id"];
+            }
+            if(!$data_array["branch_to_cluster"][$libraryRow["owning_branch_id"]])
+            {
+                $data_array["branch_to_cluster"][$libraryRow["owning_branch_id"]] = $libraryRow["owning_cluster_id"];
+            }
+
+            // Stuff the meat of the data
+            if(!$data_array["amount_branch"][$libraryRow["borrowing_branch_id"]])
+            {
+                $data_array["amount_branch"][$libraryRow["borrowing_branch_id"]] = array($libraryRow["owning_branch_id"] => $libraryRow["quantity"]);
+            }
+            else
+            {
+                $data_array["amount_branch"][$libraryRow["borrowing_branch_id"]][] = array($libraryRow["owning_branch_id"] => $libraryRow["quantity"]);
+            }
+            
+            // Add up totals for each whole cluster
+            if(!$data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]])
+            {
+                $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]] = array($libraryRow["owning_cluster_id"] => $libraryRow["quantity"] );
+            }
+            else if(!$data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]])
+            {
+                $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]] = $libraryRow["quantity"];
+            }
+            else
+            {
+                $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]] += $libraryRow["quantity"];
+            }
+
+        }
+        $gotmore = $result->rowCount();
+        $totalRows+=$gotmore;
+        // $gotmore = 0;
+        unset($rows);
+        unset($result);
+        $offset += $chunk;
+    }
+    $data_array["query"] = $query;
+    $data_array["result_rows"] = $totalRows;
 }
 
 function mobius_borrowing_n_lending_json() {
