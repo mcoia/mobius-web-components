@@ -22,6 +22,7 @@ sub new
         monthsBack => shift,
         blindDate => shift,
         log => shift,
+        debug => shift,
         webURL => '',
         webLogin => '',
         webPass => '',
@@ -65,7 +66,7 @@ sub collectReportData
             return doms[doms.length - 1].innerHTML;
         }
         ");
-    $self->{log}->addLine("Got this: $owning");
+    $self->{log}->addLine("Got this: $owning") if $self->{debug};
     my $rowNum = 0;
     pQuery("tr",$owning)->each(sub {
         if($rowNum > 0) ## Skipping the title row  -- ad this to get a smaller sample of data  && $rowNum < 10
@@ -86,7 +87,7 @@ sub collectReportData
                     {
                         $owningLib = pQuery($_)->text();
                     }
-                    else
+                    elsif ( length(@borrowingLibs[$colNum]) > 0  && (pQuery($_)->text() ne '0') )
                     {
                         if(!$borrowingMap{$owningLib})
                         {   
@@ -123,10 +124,9 @@ sub collectReportData
         }
     }
     $query = substr($query,0,-2);
-    # $self->{log}->addLine($query);
-    # $self->{log}->addLine(Dumper(\@vals));
+    $self->{log}->addLine($query) if $self->{debug};
+    $self->{log}->addLine(Dumper(\@vals)) if $self->{debug};
     $self->{dbHandler}->updateWithParameters($query,\@vals);
-    
     # now we need to create a branch for any potiential new branches/institutions
         
     my $query = "INSERT INTO $self->{prefix}"."_branch
@@ -148,8 +148,8 @@ sub collectReportData
     lower(trim(bnl_stage.owning_lib)) not in (select lower(trim(name)) from  $self->{prefix}"."_ignore_name)
     ";
     @vals = ($randomHash,$self->{name});
-    $self->{log}->addLine($query);
-    # $self->{log}->addLine(Dumper(\@vals));
+    $self->{log}->addLine($query) if $self->{debug};
+    $self->{log}->addLine(Dumper(\@vals)) if $self->{debug};
     print "inserting into $self->{prefix}"."_branch\n";
     $self->{dbHandler}->updateWithParameters($query,\@vals);
     
@@ -173,8 +173,8 @@ sub collectReportData
     length(trim(bnl_stage.borrowing_lib)) > 0 and
     lower(trim(bnl_stage.borrowing_lib)) not in (select lower(trim(name)) from  $self->{prefix}"."_ignore_name)
     ";
-    $self->{log}->addLine($query);
-    # $self->{log}->addLine(Dumper(\@vals));
+    $self->{log}->addLine($query) if $self->{debug};
+    $self->{log}->addLine(Dumper(\@vals)) if $self->{debug};
     print "inserting into $self->{prefix}"."_branch\n";
     $self->{dbHandler}->updateWithParameters($query,\@vals);
     
@@ -217,12 +217,12 @@ sub collectReportData
     ) 
     =  thejoiner.together
     ";
-    $self->{log}->addLine($query);
-    $self->{log}->addLine(Dumper(\@vals));
+    $self->{log}->addLine($query) if $self->{debug};
+    $self->{log}->addLine(Dumper(\@vals)) if $self->{debug};
     print "DELETE $self->{prefix}"."_bnl\n";
     $self->{dbHandler}->updateWithParameters($query,\@vals);
-    
-    
+
+
     ## Make the final insert
     $query = "
     INSERT INTO $self->{prefix}"."_bnl

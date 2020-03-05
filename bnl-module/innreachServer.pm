@@ -83,7 +83,7 @@ sub handleLandingPage
             }
             return 1;
             ");
-        sleep 1;
+        sleep 5;
 
         $self->{driver}->switch_to_frame();
         $self->switchToFrame(\@frameSearchElements);
@@ -111,7 +111,7 @@ sub handleLandingPage
             return 1;
             ");
 
-        sleep 1;
+        sleep 5;
         $self->{driver}->switch_to_frame();
         $self->takeScreenShot('handleLandingPage');
         return 1;
@@ -174,7 +174,7 @@ sub handleDateSelect
             ";
         $self->{log}->addLine("Script: $script");
         my $answer = $self->{driver}->execute_script($script);
-        sleep 1;
+        sleep 10;
         $self->{driver}->switch_to_frame();
         $self->takeScreenShot('handleDateSelect');
         return $answer;

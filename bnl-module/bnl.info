@@ -2,4 +2,5 @@
 name = Borrowing and Lending
 description = A module that deals with MOBIUS's Borrowing and Lending Statistics.
 scripts[] = bnl.js
+stylesheets[all][] = bnl.css
 core = 7.x

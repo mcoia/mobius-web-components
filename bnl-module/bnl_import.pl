@@ -104,11 +104,11 @@ if(@all[1])
         my $cluster;
         if($clusters{$_} =~ m/sierra/)  ## Right now, there are two typs: sierra and innreach
         {
-            $cluster = new sierraCluster($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log);
+            $cluster = new sierraCluster($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug);
         }
         else
         {
-            $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log);
+            $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug);
         }
         $cluster->scrape();
     }
@@ -128,6 +128,7 @@ sub getClusters
     name,type
     FROM
     $stagingTablePrefix"."_cluster
+    where type='innreach' and name='prospector'
     order by 2 desc,1
     ";
     $log->addLogLine($query);
