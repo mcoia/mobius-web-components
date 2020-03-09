@@ -21,18 +21,47 @@ function bnl_menu()
 function mobius_bnl_display()
 {
   drupal_page_is_cacheable($allow_caching = FALSE);
+  drupal_add_css('/sites/all/libraries/chosen/chosen.css', 'external');
+  drupal_add_js('/sites/all/libraries/chosen/chosen.jquery.js', 'external');
+
   $page = array (
     '#markup' =>
     '
     <h1>whatsup</h1>
     <span id="mobius_bnl_page_is_loaded"></span>
+    <div id="bnl_panel">
     <label for="fromdate">From Date</label><input id="fromdate" type="text" />
     <label for="todate">To Date</label><input id="todate" type="text" />
+    <div id="bnl_filter_select_master_container">
+    
+        <div class="bnl_filter_container">
+        <div class="bnl_title_container">Owning Library</div>
+            <div id="bnl_filter_branch_owning">
+            </div>
+            <div id="bnl_filter_cluster_owning">
+            </div>
+            <div id="bnl_filter_innreach_owning">
+            </div>
+        </div> <!-- bnl_filter_container -->
+
+        <div class="bnl_filter_container">
+        <div class="bnl_title_container">Borrowing Library</div>
+            <div id="bnl_filter_branch_borrowing">
+            </div>
+            <div id="bnl_filter_cluster_borrowing">
+            </div>
+            <div id="bnl_filter_innreach_borrowing">
+            </div>
+        </div> <!-- bnl_filter_container -->
+
+    </div> <!-- bnl_filter_select_master_container -->
     <div id="bnl_data_tables">
     <div id="bnl_branch_div"></div>
     <div id="bnl_cluster_div"></div>
-    </div<
+    </div>
     <div id="bnl_pie"></div>
+    <div id="bnl_submit_button">Get Results!</div>
+    </div> <!-- bnl_panel -->
      '
   );  // end render array
 
@@ -64,7 +93,8 @@ function mobius_bnl_get_all_branches(&$data_array)
     $data_array["branch"] = array();
     $data_array["cluster"] = array();
     $data_array["branch_to_cluster"] = array();
-
+    $data_array["branch_order"] = array();
+    $used = array();
     // First get the overall branch names and clusters to which they belong
      $query = "
        SELECT
@@ -80,10 +110,17 @@ function mobius_bnl_get_all_branches(&$data_array)
         WHERE
         cluster.id = branch.cluster and
         bnl_name.id = branch.final_branch
+        order by lower(bnl_name.name)
         ";
     $result = db_query($query);
     while($libraryRow = $result->fetchAssoc())
     {
+        // Record the order
+        if(!$used[$libraryRow["branch_id"]])
+        {
+            $used[$libraryRow["branch_id"]] = 1; 
+            $data_array["branch_order"][] = $libraryRow["branch_id"];
+        }
         // Record the branches
         if(!$data_array["branch"][$libraryRow["branch_id"]])
         {

@@ -110,6 +110,8 @@ if(@all[1])
         {
             $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug);
         }
+        $cluster->normalizeNames();
+        exit;
         $cluster->scrape();
     }
 }   
@@ -211,7 +213,19 @@ sub createDatabase
 
     if($recreateDB)
     {
-        my $query = "DROP VIEW $stagingTablePrefix"."_branch_cluster ";
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_name_dedupe ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP VIEW $stagingTablePrefix"."_same_branch_normal_name_expanded ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_same_branch_normal_name ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_cluster ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP FUNCTION IF EXISTS $stagingTablePrefix"."_normalize_library_name";
         $log->addLine($query);
         $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_ignore_name ";
@@ -240,7 +254,24 @@ sub createDatabase
     my @exists = @{$dbHandler->query("SELECT table_name FROM information_schema.tables WHERE table_schema RLIKE '$databaseName' AND table_name RLIKE '$stagingTablePrefix'")};
     if(!$exists[0])
     {
-        my $query = "CREATE TABLE $stagingTablePrefix"."_cluster (
+    
+        ##################
+        # FUNCTIONS
+        ##################
+        my $query = "
+         CREATE FUNCTION $stagingTablePrefix"."_normalize_library_name (raw_name TEXT) RETURNS VARCHAR(100)
+            BEGIN
+                RETURN replace(replace(lower(raw_name),'library',''),'  ',' ');
+            END;
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        
+        ##################
+        # TABLES
+        ##################
+        $query = "CREATE TABLE $stagingTablePrefix"."_cluster (
         id int not null auto_increment,
         name varchar(100),
         type varchar(100),
@@ -291,8 +322,10 @@ sub createDatabase
         borrowing_branch int,
         quantity int,
         borrow_date date,
+        match_key varchar(50),
         insert_time datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
+        INDEX (match_key),
         UNIQUE INDEX (owning_cluster, owning_branch, borrowing_cluster, borrowing_branch, borrow_date),
         FOREIGN KEY (owning_cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE,
         FOREIGN KEY (borrowing_cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE,
@@ -310,8 +343,10 @@ sub createDatabase
         borrowing_lib varchar(100),
         quantity int,
         borrow_date date,
+        match_key varchar(50),
         insert_time datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id)
+        PRIMARY KEY (id),
+        INDEX (match_key)
         )
         ";
         $log->addLine($query) if $debug;
@@ -321,7 +356,9 @@ sub createDatabase
         id int not null auto_increment,
         variation varchar(100),
         normalized varchar(100),
-        PRIMARY KEY (id)
+        PRIMARY KEY (id),
+        INDEX (variation),
+        INDEX (normalized)
         )
         ";
         $log->addLine($query) if $debug;
@@ -336,40 +373,174 @@ sub createDatabase
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
         
-        
-        $query = "CREATE VIEW $stagingTablePrefix"."_branch_cluster 
+        ##################
+        # VIEWS
+        ##################
+        $query = "
+        CREATE VIEW $stagingTablePrefix"."_branch_cluster 
         AS
-                select distinct 
-                branch_non_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
-                from
-                mobius_bnl_branch branch_sierra,
-                mobius_bnl_branch branch_non_sierra,
-                mobius_bnl_cluster cluster_sierra,
-                mobius_bnl_cluster cluster_non_sierra,
-                mobius_bnl_branch_name_final final_name
-                where
-                final_name.id = branch_non_sierra.final_branch and
-                branch_sierra.final_branch = final_name.id and
-                branch_non_sierra.cluster = cluster_non_sierra.id and
-                cluster_sierra.id=branch_sierra.cluster and
-                branch_sierra.final_branch = branch_non_sierra.final_branch and
-                cluster_sierra.type !='innreach' and
-                cluster_non_sierra.type='innreach'
-                
-                union all
-                
-                select distinct 
-                branch_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
-                from
-                mobius_bnl_branch branch_sierra,
-                mobius_bnl_cluster cluster_sierra
-                where
-                cluster_sierra.id=branch_sierra.cluster and
-                cluster_sierra.type !='innreach'
+        select DISTINCT 
+        branch_non_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
+        FROM
+        mobius_bnl_branch branch_sierra,
+        mobius_bnl_branch branch_non_sierra,
+        mobius_bnl_cluster cluster_sierra,
+        mobius_bnl_cluster cluster_non_sierra,
+        mobius_bnl_branch_name_final final_name
+        WHERE
+        final_name.id = branch_non_sierra.final_branch AND
+        branch_sierra.final_branch = final_name.id AND
+        branch_non_sierra.cluster = cluster_non_sierra.id AND
+        cluster_sierra.id=branch_sierra.cluster AND
+        branch_sierra.final_branch = branch_non_sierra.final_branch AND
+        cluster_sierra.type !='innreach' AND
+        cluster_non_sierra.type='innreach'
+        
+        UNION ALL
+        
+        SELECT DISTINCT 
+        branch_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
+        FROM
+        mobius_bnl_branch branch_sierra,
+        mobius_bnl_cluster cluster_sierra
+        where
+        cluster_sierra.id=branch_sierra.cluster AND
+        cluster_sierra.type !='innreach'
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-                
+        
+        
+        $query = "
+        CREATE VIEW $stagingTablePrefix"."_same_branch_normal_name
+        AS
+        SELECT
+            $stagingTablePrefix"."_normalize_library_name(mbb_inside.institution) \"normal_name\"
+            , count( * ) as \"count\"
+            FROM
+            mobius_bnl_branch mbb_inside WHERE
+            lower(mbb_inside.institution) like '%library%'
+            group by 1
+            having count( * ) > 1
+         ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        $query = "
+        CREATE VIEW $stagingTablePrefix"."_same_branch_normal_name_expanded
+        AS
+       SELECT mbb.id,$stagingTablePrefix"."_normalize_library_name(mbb.institution) \"dname\",mbb.institution
+            FROM
+            mobius_bnl_branch mbb,
+            $stagingTablePrefix"."_same_branch_normal_name AS normals
+                WHERE
+                $stagingTablePrefix"."_normalize_library_name(mbb.institution) = normals.normal_name
+         ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "
+        CREATE VIEW $stagingTablePrefix"."_branch_name_dedupe
+        AS
+        SELECT DISTINCT
+            thebottom.institution \"variation\", thetop.institution \"normalized\"
+            FROM
+            $stagingTablePrefix"."_same_branch_normal_name_expanded AS thetop,
+            $stagingTablePrefix"."_same_branch_normal_name_expanded AS thebottom
+            WHERE
+            thetop.dname=thebottom.dname AND
+            thebottom.id!=thetop.id AND
+            length(thetop.institution) > length(thebottom.institution)
+
+            UNION ALL
+
+            SELECT
+            thetop.institution \"variation\", thebottom.institution \"normalized\"
+            FROM
+            $stagingTablePrefix"."_same_branch_normal_name_expanded AS thetop,
+            $stagingTablePrefix"."_same_branch_normal_name_expanded AS thebottom
+            WHERE
+            thetop.dname=thebottom.dname AND
+            thebottom.id!=thetop.id AND
+            length(thetop.institution) < length(thebottom.institution)
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        ##################
+        # TRIGGERS
+        ##################
+
+         $query = "
+         CREATE TRIGGER $stagingTablePrefix"."_bnl_match_key_update BEFORE UPDATE ON $stagingTablePrefix"."_bnl
+            FOR EACH ROW
+            BEGIN
+                SET NEW.match_key = CONCAT(
+                        NEW.owning_cluster,'-',
+                        NEW.owning_branch,'-',
+                        NEW.borrowing_cluster,'-',
+                        NEW.borrowing_branch, '-',
+                        NEW.borrow_date
+                        );
+            END;
+        
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "
+         CREATE TRIGGER $stagingTablePrefix"."_bnl_match_key_insert BEFORE INSERT ON $stagingTablePrefix"."_bnl
+            FOR EACH ROW
+            BEGIN
+                SET NEW.match_key = CONCAT(
+                        NEW.owning_cluster,'-',
+                        NEW.owning_branch,'-',
+                        NEW.borrowing_cluster,'-',
+                        NEW.borrowing_branch, '-',
+                        NEW.borrow_date
+                        );
+            END;
+        
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        ##############
+        # Decided not to completely remove the word library from the data. Just normalize it with the proceedures above
+        # But in case we decide we want to - these triggers will cause the word "library" to be outlawed from the names everywhere
+        ###############
+        # $query = "
+         # CREATE TRIGGER $stagingTablePrefix"."_bnl_stage_name_normalize_insert BEFORE INSERT ON $stagingTablePrefix"."_bnl_stage
+            # FOR EACH ROW
+            # BEGIN
+                # SET NEW.borrowing_lib = TRIM(REGEXP_REPLACE(NEW.borrowing_lib,'(?i)library',''));
+                # SET NEW.owning_lib = TRIM(REGEXP_REPLACE(NEW.borrowing_lib,'(?i)library',''));
+            # END;
+        # ";
+        # $log->addLine($query) if $debug;
+        # $dbHandler->update($query);
+
+        # $query = "
+         # CREATE TRIGGER $stagingTablePrefix"."_brance_name_normalize_insert BEFORE INSERT ON $stagingTablePrefix"."_branch
+            # FOR EACH ROW
+            # BEGIN
+                # SET NEW.institution = REGEXP_REPLACE(TRIM(REGEXP_REPLACE(NEW.institution,'(?i)library','')),'[[:space:]]+',' ');
+                # SET NEW.shortname = REGEXP_REPLACE(TRIM(REGEXP_REPLACE(NEW.shortname,'(?i)library','')),'[[:space:]]+',' ');
+            # END;
+        # ";
+        # $log->addLine($query) if $debug;
+        # $dbHandler->update($query);
+
+        # $query = "
+         # CREATE TRIGGER $stagingTablePrefix"."_brance_name_normalize_update BEFORE UPDATE ON $stagingTablePrefix"."_branch
+            # FOR EACH ROW
+            # BEGIN
+                # SET NEW.institution = TRIM(REGEXP_REPLACE(NEW.institution,'(?i)library',''));
+                # SET NEW.shortname = TRIM(REGEXP_REPLACE(NEW.shortname,'(?i)library',''));
+            # END;
+        # ";
+        # $log->addLine($query) if $debug;
+        # $dbHandler->update($query);
 
         seedDB($dbSeed) if $dbSeed;
     }

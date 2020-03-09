@@ -85,7 +85,7 @@ sub translateShortCodes
         my $randomHash = $self->generateRandomString(12);
         my $query = 
         "
-        select svb.code_num,svl.code,svbn.name,svbn.branch_id 
+        select svb.code_num,svl.code,regexp_replace(regexp_replace(svbn.name,'library','','ig'),'\\s+',' ','g'),svbn.branch_id 
         from
         sierra_view.location svl,
         sierra_view.branch svb,

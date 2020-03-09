@@ -138,9 +138,9 @@ sub collectReportData
     WHERE
     bnl_stage.working_hash = ? and
     cluster.name = ? and
-    concat(cluster.id,'-',trim(bnl_stage.owning_lib)) not in(
+    LOWER(concat(cluster.id,'-',trim(bnl_stage.owning_lib))) not in(
         select
-        concat(cluster,'-',shortname)
+        LOWER(concat(cluster,'-',shortname))
         from
         $self->{prefix}"."_branch
     ) and
@@ -150,7 +150,7 @@ sub collectReportData
     @vals = ($randomHash,$self->{name});
     $self->{log}->addLine($query) if $self->{debug};
     $self->{log}->addLine(Dumper(\@vals)) if $self->{debug};
-    print "inserting into $self->{prefix}"."_branch\n";
+    print "inserting into $self->{prefix}"."_branch\n" if $self->{debug};
     $self->{dbHandler}->updateWithParameters($query,\@vals);
     
     
@@ -164,9 +164,9 @@ sub collectReportData
     WHERE
     bnl_stage.working_hash = ? and
     cluster.name = ? and
-    concat(cluster.id,'-',trim(bnl_stage.borrowing_lib)) not in(
+    LOWER(concat(cluster.id,'-',trim(bnl_stage.borrowing_lib))) not in(
         select
-        concat(cluster,'-',shortname)
+        LOWER(concat(cluster,'-',shortname))
         from
         $self->{prefix}"."_branch
     ) and
@@ -175,7 +175,7 @@ sub collectReportData
     ";
     $self->{log}->addLine($query) if $self->{debug};
     $self->{log}->addLine(Dumper(\@vals)) if $self->{debug};
-    print "inserting into $self->{prefix}"."_branch\n";
+    print "inserting into $self->{prefix}"."_branch\n" if $self->{debug};
     $self->{dbHandler}->updateWithParameters($query,\@vals);
     
     # Now that the branches exist and have an ID number, we can migrate from the staging table into production
@@ -202,24 +202,17 @@ sub collectReportData
     WHERE
     bnl_stage.working_hash = ? and
     cluster.name = ? and
-    owning_branch_table.shortname = bnl_stage.owning_lib and
+    LOWER(owning_branch_table.shortname) = LOWER(bnl_stage.owning_lib) and
     owning_branch_table.cluster = cluster.id and
-    borrowing_branch_table.shortname = bnl_stage.borrowing_lib and
+    LOWER(borrowing_branch_table.shortname) = LOWER(bnl_stage.borrowing_lib) and
     borrowing_branch_table.cluster = cluster.id
     ) as thejoiner
     WHERE
-    CONCAT(
-    bnl_conflict.owning_cluster,'-',
-    bnl_conflict.owning_branch,'-',
-    bnl_conflict.borrowing_cluster,'-',
-    bnl_conflict.borrowing_branch, '-',
-    borrow_date
-    ) 
-    =  thejoiner.together
+    bnl_conflict.match_key = thejoiner.together
     ";
     $self->{log}->addLine($query) if $self->{debug};
     $self->{log}->addLine(Dumper(\@vals)) if $self->{debug};
-    print "DELETE $self->{prefix}"."_bnl\n";
+    print "DELETE $self->{prefix}"."_bnl\n" if $self->{debug};
     $self->{dbHandler}->updateWithParameters($query,\@vals);
 
 
@@ -243,14 +236,14 @@ sub collectReportData
     WHERE
     bnl_stage.working_hash = ? and
     cluster.name = ? and
-    owning_branch_table.shortname = bnl_stage.owning_lib and
+    LOWER(owning_branch_table.shortname) = LOWER(bnl_stage.owning_lib) and
     owning_branch_table.cluster = cluster.id and
-    borrowing_branch_table.shortname = bnl_stage.borrowing_lib and
+    LOWER(borrowing_branch_table.shortname) = LOWER(bnl_stage.borrowing_lib) and
     borrowing_branch_table.cluster = cluster.id
     ";
     $self->{log}->addLine($query);
     # $self->{log}->addLine(Dumper(\@vals));
-    print "INSERT INTO $self->{prefix}"."_bnl\n";
+    print "INSERT INTO $self->{prefix}"."_bnl\n" if $self->{debug};
     $self->{dbHandler}->updateWithParameters($query,\@vals);
 
     ## And clear out our staging table
@@ -262,7 +255,7 @@ sub collectReportData
     $self->{log}->addLine($query);
     @vals = ($randomHash);
     $self->{log}->addLine(Dumper(\@vals));
-    print "DELETE FROM $self->{prefix}"."_bnl_stage\n";
+    print "DELETE FROM $self->{prefix}"."_bnl_stage\n" if $self->{debug};
     $self->{dbHandler}->updateWithParameters($query,\@vals);
 
     undef $borrowingMap;
@@ -276,6 +269,56 @@ sub normalizeNames
     my ($self) = shift;
 
     my $query = "
+    INSERT INTO ".$self->{prefix}."_normalize_branch_name
+    (variation,normalized)
+    SELECT DISTINCT
+    mbnd.variation,mmbnbn.normalized
+    FROM
+    ".$self->{prefix}."_branch_name_dedupe mbnd,
+    ".$self->{prefix}."_normalize_branch_name mmbnbn
+    WHERE
+    mmbnbn.normalized = mbnd.normalized AND
+    mbnd.variation not in(SELECT variation FROM ".$self->{prefix}."_normalize_branch_name )
+    ";
+    $self->{log}->addLine($query);    
+    print "NORMALIZING INSERT INTO ".$self->{prefix}."_branch_name_final\n" if $self->{debug};
+    $self->{dbHandler}->update($query);
+
+    $query = "
+    INSERT INTO ".$self->{prefix}."_normalize_branch_name
+    (variation,normalized)
+    SELECT DISTINCT
+    mbnd.variation,mbnd.normalized
+    FROM
+    ".$self->{prefix}."_branch_name_dedupe mbnd
+    WHERE
+    mbnd.variation not in(SELECT variation FROM ".$self->{prefix}."_normalize_branch_name )
+    ";
+    $self->{log}->addLine($query);    
+    print "NORMALIZING INSERT INTO ".$self->{prefix}."_branch_name_final\n" if $self->{debug};
+    $self->{dbHandler}->update($query);
+
+    $query = "
+     INSERT INTO ".$self->{prefix}."_normalize_branch_name
+    (variation,normalized)
+    SELECT
+    mbb.institution, mbnbn.normalized
+    FROM
+    ".$self->{prefix}."_branch mbb,
+    ".$self->{prefix}."_normalize_branch_name mbnbn
+    WHERE
+    ".$self->{prefix}."_normalize_library_name(mbnbn.variation) = ".$self->{prefix}."_normalize_library_name(mbb.institution) AND
+    mbb.institution != mbnbn.normalized AND
+    lower(mbnbn.variation) != lower(mbb.institution) AND
+    mbb.institution not in(select normalized from ".$self->{prefix}."_normalize_branch_name)
+    group by 1,2
+    ";
+    $self->{log}->addLine($query);    
+    print "NORMALIZING INSERT INTO ".$self->{prefix}."_branch_name_final\n" if $self->{debug};
+    $self->{dbHandler}->update($query);
+            
+            
+    $query = "
     INSERT INTO ".$self->{prefix}."_branch_name_final
     (name)
     SELECT DISTINCT
@@ -284,26 +327,26 @@ sub normalizeNames
     ".$self->{prefix}."_normalize_branch_name nbn,
     ".$self->{prefix}."_branch b
     WHERE
-    nbn.variation = b.institution and
+    nbn.variation = b.institution AND
     nbn.normalized not in(SELECT name FROM ".$self->{prefix}."_branch_name_final )
     ";
     $self->{log}->addLine($query);    
-    print "NORMALIZING INSERT INTO ".$self->{prefix}."_branch_name_final\n";
+    print "NORMALIZING INSERT INTO ".$self->{prefix}."_branch_name_final\n" if $self->{debug};
     $self->{dbHandler}->update($query);
 
     $query = "
-    insert into  ".$self->{prefix}."_branch_name_final
+    INSERT INTO ".$self->{prefix}."_branch_name_final
     (name)
     SELECT DISTINCT
     b.institution
     FROM
     ".$self->{prefix}."_branch b
-    where
-    b.institution not in (SELECT variation FROM ".$self->{prefix}."_normalize_branch_name) and
+    WHERE
+    b.institution not in (SELECT variation FROM ".$self->{prefix}."_normalize_branch_name) AND
     b.institution not in(SELECT name FROM ".$self->{prefix}."_branch_name_final )
     ";
     $self->{log}->addLine($query);    
-    print "NORMALIZING INSERT INTO ".$self->{prefix}."_branch_name_final\n";
+    print "NORMALIZING INSERT INTO ".$self->{prefix}."_branch_name_final\n" if $self->{debug};
     $self->{dbHandler}->update($query);
 
     $query = "
@@ -314,12 +357,11 @@ sub normalizeNames
     SET
     branch.final_branch = bnf.id
     WHERE
-    nbn.variation = branch.institution and
-    bnf.name = nbn.normalized and
-    branch.final_branch is null
+    nbn.variation = branch.institution AND
+    bnf.name = nbn.normalized
     ";
-    $self->{log}->addLine($query);    
-    print "UPDATING BRANCH TO FINAL ID through normalization ".$self->{prefix}."_branch_name_final\n";
+    $self->{log}->addLine($query);
+    print "UPDATING BRANCH TO FINAL ID through normalization ".$self->{prefix}."_branch_name_final\n" if $self->{debug};
     $self->{dbHandler}->update($query);
 
     $query = "
@@ -329,11 +371,23 @@ sub normalizeNames
     SET
     branch.final_branch = bnf.id
     WHERE
-    branch.institution = bnf.name and
-    branch.final_branch is null
+    branch.institution = bnf.name AND
+    branch.institution NOT IN (SELECT variation FROM ".$self->{prefix}."_normalize_branch_name) AND
+    branch.final_branch != bnf.id
     ";
     $self->{log}->addLine($query);    
-    print "UPDATING BRANCH TO FINAL ID without normalization ".$self->{prefix}."_branch_name_final\n";
+    print "UPDATING BRANCH TO FINAL ID without normalization ".$self->{prefix}."_branch_name_final\n" if $self->{debug};
+    $self->{dbHandler}->update($query);
+
+    $query = "
+    DELETE bnf FROM 
+    ".$self->{prefix}."_branch_name_final bnf,
+    ".$self->{prefix}."_normalize_branch_name nbn
+    WHERE
+    bnf.name = nbn.variation
+    ";
+    $self->{log}->addLine($query);    
+    print "DELETING FINAL BRANCHES THAT EXIST IN normalization ".$self->{prefix}."_branch_name_final\n" if $self->{debug};
     $self->{dbHandler}->update($query);
 }
 
