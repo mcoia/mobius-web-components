@@ -23,44 +23,70 @@ function mobius_bnl_display()
   drupal_page_is_cacheable($allow_caching = FALSE);
   drupal_add_css('/sites/all/libraries/chosen/chosen.css', 'external');
   drupal_add_js('/sites/all/libraries/chosen/chosen.jquery.js', 'external');
+  drupal_add_js('https://cdn.jsdelivr.net/momentjs/latest/moment.min.js', 'external');
+  drupal_add_js('https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js', 'external');
+  drupal_add_css('https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css', 'external');
 
   $page = array (
     '#markup' =>
     '
-    <h1>whatsup</h1>
+    <h1>Dates are whole months</h1>
     <span id="mobius_bnl_page_is_loaded"></span>
     <div id="bnl_panel">
-    <label for="fromdate">From Date</label><input id="fromdate" type="text" />
-    <label for="todate">To Date</label><input id="todate" type="text" />
     <div id="bnl_filter_select_master_container">
+   
+        <div id="bnl_date_div">
+        <label for="daterange">Date Range</label><br/>
+        <input id="daterange" type="text" />
+        </div>
     
         <div class="bnl_filter_container">
         <div class="bnl_title_container">Owning Library</div>
-            <div id="bnl_filter_branch_owning">
+            <div class="bnl_dropdown_wrapper">
+                <div id="bnl_filter_branch_owning" class="bnl_dropdown">
+                </div>
+                LIBRARY
             </div>
-            <div id="bnl_filter_cluster_owning">
+            <div class="bnl_dropdown_wrapper">
+                <div id="bnl_filter_cluster_owning" class="bnl_dropdown">
+                </div>
+                CLUSTER
             </div>
-            <div id="bnl_filter_innreach_owning">
+            <div class="bnl_dropdown_wrapper">
+                <div id="bnl_filter_system_owning" class="bnl_dropdown">
+                </div>
+                SYSTEM
             </div>
         </div> <!-- bnl_filter_container -->
 
         <div class="bnl_filter_container">
         <div class="bnl_title_container">Borrowing Library</div>
-            <div id="bnl_filter_branch_borrowing">
+            <div class="bnl_dropdown_wrapper">
+                <div id="bnl_filter_branch_borrowing" class="bnl_dropdown">
+                </div>
+                LIBRARY
             </div>
-            <div id="bnl_filter_cluster_borrowing">
+            <div class="bnl_dropdown_wrapper">
+                <div id="bnl_filter_cluster_borrowing" class="bnl_dropdown">
+                </div>
+                CLUSTER
             </div>
-            <div id="bnl_filter_innreach_borrowing">
+            <div class="bnl_dropdown_wrapper">
+                <div id="bnl_filter_system_borrowing" class="bnl_dropdown">
+                </div>
+                SYSTEM
             </div>
         </div> <!-- bnl_filter_container -->
-
+    
+    <div id="bnl_submit_container"><div id="bnl_submit_button">Get Results!</div></div>
+    
     </div> <!-- bnl_filter_select_master_container -->
     <div id="bnl_data_tables">
     <div id="bnl_branch_div"></div>
     <div id="bnl_cluster_div"></div>
     </div>
     <div id="bnl_pie"></div>
-    <div id="bnl_submit_button">Get Results!</div>
+    
     </div> <!-- bnl_panel -->
      '
   );  // end render array
@@ -72,11 +98,11 @@ function mobius_bnl_postback()
 {
     
     $data_array = array();
-    if($_GET['datefrom'] && $_GET['dateto'])
+    if($_GET['startdate'] && $_GET['enddate'])
     {
         mobius_borrowing_n_lending_json();  // calling headers
         
-        mobius_bnl_get_bnl_base($data_array);
+        mobius_bnl_get_bnl_base($data_array, $_GET['startdate'], $_GET['enddate']);
         echo $data_array = drupal_json_encode($data_array);
     }
     else if($_GET['get_branches'])
@@ -142,7 +168,7 @@ function mobius_bnl_get_all_branches(&$data_array)
 }
 
 
-function mobius_bnl_get_bnl_base(&$data_array)
+function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate)
 {
     
     $data_array["amount_branch"] = array();
@@ -181,14 +207,11 @@ function mobius_bnl_get_bnl_base(&$data_array)
             
             bnl.borrow_date between str_to_date( concat(?,'-01') ,'%Y-%m-%d') and str_to_date( concat(?,'-01') ,'%Y-%m-%d')
             and bnl.quantity > 0
-            and borrowing_cluster_ids.cname !='merlin'
-            -- and borrowing_cluster_ids.cname != owning_cluster_ids.cname
-            
             group by 1,2,3,4,5,6,7
             limit $chunk
             offset $offset
             ";
-        $vals = array($_GET['datefrom'],$_GET['dateto']);
+        $vals = array($startDate, $endDate);
         $result = db_query($query,$vals);
         while($libraryRow = $result->fetchAssoc())
         {
