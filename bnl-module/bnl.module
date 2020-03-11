@@ -96,13 +96,27 @@ function mobius_bnl_display()
 
 function mobius_bnl_postback()
 {
-    
     $data_array = array();
     if($_GET['startdate'] && $_GET['enddate'])
     {
         mobius_borrowing_n_lending_json();  // calling headers
-        
-        mobius_bnl_get_bnl_base($data_array, $_GET['startdate'], $_GET['enddate']);
+        $clusters = array
+        (
+            'owning' => ($_GET['cluster_owning'] ? $_GET['cluster_owning'] : ''),
+            'borrowing' => ($_GET['cluster_borrowing'] ? $_GET['cluster_borrowing'] : '')
+        );
+        $clusters['owning'] .= ($_GET['system_owning'] ? ','.$_GET['system_owning'] : '');
+        $clusters['borrowing'] .= ($_GET['system_borrowing'] ? ','.$_GET['system_borrowing'] : '');
+        $clusters['owning'] = preg_replace('/^,?(.*)/','$1', $clusters['owning']);
+        $clusters['borrowing'] = preg_replace('/^,?(.*)/','$1', $clusters['borrowing']);
+        $branchArray = array
+        (
+            'bnl_owning_name.id' => $_GET['branch_owning'],
+            'bnl_borrowing_name.id' => $_GET['branch_borrowing'],
+            'owning_cluster_ids.cid' => $clusters['owning'],
+            'borrowing_cluster_ids.cid' => $clusters['borrowing']
+        );
+        mobius_bnl_get_bnl_base($data_array, $_GET['startdate'], $_GET['enddate'], $branchArray);
         echo $data_array = drupal_json_encode($data_array);
     }
     else if($_GET['get_branches'])
@@ -167,13 +181,12 @@ function mobius_bnl_get_all_branches(&$data_array)
     }
 }
 
-
-function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate)
+function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSelections)
 {
     
     $data_array["amount_branch"] = array();
     $data_array["amount_cluster"] = array();
- 
+
     $gotmore = 1;
     $offset = 1;
     $chunk = 1000;
@@ -181,8 +194,8 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate)
     while($gotmore > 0)
     {
         
+        $vals = array($startDate, $endDate);
         $query = "
-
            SELECT
        bnl_borrowing_name.name \"borrowing_branch_name\", bnl_borrowing_name.id \"borrowing_branch_id\",
        bnl_owning_name.name \"owning_branch_name\", bnl_owning_name.id \"owning_branch_id\",
@@ -203,15 +216,38 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate)
             bnl.borrowing_branch = bnl_borrowing_branch.id and
             bnl.owning_branch = bnl_owning_branch.id and
             bnl_borrowing_branch.id = borrowing_cluster_ids.sid and
-            bnl_owning_branch.id = owning_cluster_ids.sid and
-            
+            bnl_owning_branch.id = owning_cluster_ids.sid and            
             bnl.borrow_date between str_to_date( concat(?,'-01') ,'%Y-%m-%d') and str_to_date( concat(?,'-01') ,'%Y-%m-%d')
             and bnl.quantity > 0
+            ";
+
+        foreach ($branchSelections as $key => $value)
+        {
+            if(strlen($value) > 0)
+            {
+                $clause = "\nAND (";
+                $something = 0;
+                $values = explode(',',$value);
+                foreach($values as $id)
+                {
+                    if(is_numeric($id)) // only digits allowed here
+                    {
+                        $something = 1;
+                        $clause .= "\n$key = ? \nOR";
+                        $vals[] = $id;
+                    }
+                }
+                $clause = substr($clause,0,-2); // chop off the last "OR"
+                $clause .= ")\n";
+                $query = ($something ? $query.$clause : $query);
+            }
+        }
+        
+        $query .="
             group by 1,2,3,4,5,6,7
             limit $chunk
             offset $offset
             ";
-        $vals = array($startDate, $endDate);
         $result = db_query($query,$vals);
         while($libraryRow = $result->fetchAssoc())
         {

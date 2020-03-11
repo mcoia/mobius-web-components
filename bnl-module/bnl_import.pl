@@ -111,7 +111,6 @@ if(@all[1])
             $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug);
         }
         $cluster->normalizeNames();
-        exit;
         $cluster->scrape();
     }
 }   
@@ -130,9 +129,10 @@ sub getClusters
     name,type
     FROM
     $stagingTablePrefix"."_cluster
-    where type='innreach' and name='prospector'
+    -- where type='sierra' and name='merlin'
     order by 2 desc,1
     ";
+    # where type='innreach' and name='prospector'
     $log->addLogLine($query);
     my @results = @{$dbHandler->query($query)};
     foreach(@results)
@@ -304,9 +304,11 @@ sub createDatabase
         cluster int,
         institution varchar(100),
         shortname varchar(100),
+        institution_normal varchar(100),
         final_branch int,
         PRIMARY KEY (id),
         UNIQUE INDEX (cluster, shortname),
+        INDEX (institution_normal),
         FOREIGN KEY (final_branch) REFERENCES $stagingTablePrefix"."_branch_name_final(id) ON DELETE CASCADE,
         FOREIGN KEY (cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE
         )
@@ -377,16 +379,16 @@ sub createDatabase
         # VIEWS
         ##################
         $query = "
-        CREATE VIEW $stagingTablePrefix"."_branch_cluster 
+        CREATE VIEW $stagingTablePrefix"."_branch_cluster
         AS
         select DISTINCT 
         branch_non_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
         FROM
-        mobius_bnl_branch branch_sierra,
-        mobius_bnl_branch branch_non_sierra,
-        mobius_bnl_cluster cluster_sierra,
-        mobius_bnl_cluster cluster_non_sierra,
-        mobius_bnl_branch_name_final final_name
+        $stagingTablePrefix"."_branch branch_sierra,
+        $stagingTablePrefix"."_branch branch_non_sierra,
+        $stagingTablePrefix"."_cluster cluster_sierra,
+        $stagingTablePrefix"."_cluster cluster_non_sierra,
+        $stagingTablePrefix"."_branch_name_final final_name
         WHERE
         final_name.id = branch_non_sierra.final_branch AND
         branch_sierra.final_branch = final_name.id AND
@@ -401,8 +403,56 @@ sub createDatabase
         SELECT DISTINCT 
         branch_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
         FROM
-        mobius_bnl_branch branch_sierra,
-        mobius_bnl_cluster cluster_sierra
+        $stagingTablePrefix"."_branch branch_sierra,
+        $stagingTablePrefix"."_cluster cluster_sierra
+        where
+        cluster_sierra.id=branch_sierra.cluster AND
+        cluster_sierra.type !='innreach'
+        
+        UNION ALL
+
+        SELECT DISTINCT 
+        branch_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
+        FROM
+        $stagingTablePrefix"."_branch branch_sierra,
+        $stagingTablePrefix"."_cluster cluster_sierra
+        where
+        cluster_sierra.id=branch_sierra.cluster AND
+        cluster_sierra.type = 'innreach' AND
+        branch_sierra.id not in(select id from $stagingTablePrefix"."_branch where cluster in(select id from $stagingTablePrefix"."_cluster where type='sierra'))
+        
+        
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "
+        CREATE VIEW $stagingTablePrefix"."_branch_cluster 
+        AS
+        select DISTINCT 
+        branch_non_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
+        FROM
+        $stagingTablePrefix"."_branch branch_sierra,
+        $stagingTablePrefix"."_branch branch_non_sierra,
+        $stagingTablePrefix"."_cluster cluster_sierra,
+        $stagingTablePrefix"."_cluster cluster_non_sierra,
+        $stagingTablePrefix"."_branch_name_final final_name
+        WHERE
+        final_name.id = branch_non_sierra.final_branch AND
+        branch_sierra.final_branch = final_name.id AND
+        branch_non_sierra.cluster = cluster_non_sierra.id AND
+        cluster_sierra.id=branch_sierra.cluster AND
+        branch_sierra.final_branch = branch_non_sierra.final_branch AND
+        cluster_sierra.type !='innreach' AND
+        cluster_non_sierra.type='innreach'
+        
+        UNION ALL
+        
+        SELECT DISTINCT 
+        branch_sierra.id \"sid\",cluster_sierra.name \"cname\",cluster_sierra.id \"cid\"
+        FROM
+        $stagingTablePrefix"."_branch branch_sierra,
+        $stagingTablePrefix"."_cluster cluster_sierra
         where
         cluster_sierra.id=branch_sierra.cluster AND
         cluster_sierra.type !='innreach'
@@ -415,10 +465,10 @@ sub createDatabase
         CREATE VIEW $stagingTablePrefix"."_same_branch_normal_name
         AS
         SELECT
-            $stagingTablePrefix"."_normalize_library_name(mbb_inside.institution) \"normal_name\"
+            mbb_inside.institution_normal \"normal_name\"
             , count( * ) as \"count\"
             FROM
-            mobius_bnl_branch mbb_inside WHERE
+            $stagingTablePrefix"."_branch mbb_inside WHERE
             lower(mbb_inside.institution) like '%library%'
             group by 1
             having count( * ) > 1
@@ -429,12 +479,12 @@ sub createDatabase
         $query = "
         CREATE VIEW $stagingTablePrefix"."_same_branch_normal_name_expanded
         AS
-       SELECT mbb.id,$stagingTablePrefix"."_normalize_library_name(mbb.institution) \"dname\",mbb.institution
+       SELECT mbb.id,mbb.institution_normal \"dname\",mbb.institution
             FROM
-            mobius_bnl_branch mbb,
+            $stagingTablePrefix"."_branch mbb,
             $stagingTablePrefix"."_same_branch_normal_name AS normals
                 WHERE
-                $stagingTablePrefix"."_normalize_library_name(mbb.institution) = normals.normal_name
+                mbb.institution_normal = normals.normal_name
          ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
@@ -501,6 +551,26 @@ sub createDatabase
                         );
             END;
         
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        $query = "
+         CREATE TRIGGER $stagingTablePrefix"."_branch_institution_normal_update BEFORE UPDATE ON $stagingTablePrefix"."_branch
+            FOR EACH ROW
+            BEGIN
+                SET NEW.institution_normal = $stagingTablePrefix"."_normalize_library_name(NEW.institution);
+            END;
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "
+         CREATE TRIGGER $stagingTablePrefix"."_branch_institution_normal_insert BEFORE INSERT ON $stagingTablePrefix"."_branch
+            FOR EACH ROW
+            BEGIN
+                SET NEW.institution_normal = $stagingTablePrefix"."_normalize_library_name(NEW.institution);
+            END;
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);

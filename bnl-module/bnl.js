@@ -137,41 +137,55 @@ jQuery(document).ready(function()
                 endDate = moment(endDate, 'MM/DD/YYYY').format('YYYY-MM');
                 var qstring = getMultiSelectOptionsForQueryString(dropdown_vals);
                 console.log("Gathering from borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring);
-                jQuery.get("borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate, function(ob)
+                jQuery.get("borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring, function(data)
                 {
-                    if(ob['amount_branch'])
+                    var selections = getMultiSelectOptions(dropdown_vals);
+                    if(data['amount_branch'])
                     {
                         var used = 
                         {
-                            owning: [],
-                            borrowing: []
+                            owning: {},
+                            borrowing: {}
                         }
                         branch_table_html = "<table id = 'bnl_branch_table'><thead><tr><th>Owning Library</th><th>Borrowing Library</th><th>Amount</th></tr></thead><tbody>";
-                        for (var borrow_id in ob['amount_branch'])
+                        for (var borrow_id in data['amount_branch'])
                         {
-                            for (var owning_id in ob['amount_branch'][borrow_id])
+                            used['borrowing'][borrow_id] = 1;
+                            for (var owning_id in data['amount_branch'][borrow_id])
                             {
-                                branch_table_html += "<tr>";
-                                branch_table_html += "<td class='bnl_branch_table_owning_lib'>"+branch_obj['branch'][owning_id]+"</td>\n";
-                                branch_table_html += "<td class='bnl_branch_table_borrowing_lib'>"+branch_obj['branch'][borrow_id]+"</td>\n";
-                                branch_table_html += "<td class='bnl_branch_table_borrowing_lib'>"+ob['amount_branch'][borrow_id][owning_id]+"</td>\n";
-                                branch_table_html += "</tr>";
+                                used['owning'][owning_id] = 1;
+                                branch_table_html = addHTMLRow('branch', branch_obj['branch'][owning_id], branch_obj['branch'][borrow_id], data['amount_branch'][borrow_id][owning_id], branch_table_html);
+                            }
+                            for (var id_pos in selections['owning'])
+                            {
+                                if(!used['owning'][selections['owning'][id_pos]])
+                                {
+                                    // Need to introduce a "0" amount for non-present
+                                    branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos]], branch_obj['branch'][borrow_id], '0', branch_table_html);
+                                }
+                            }
+                        }
+                        for (var id_pos in selections['borrowing'])
+                        {
+                            if(!used['borrowing'][selections['borrowing'][id_pos]])
+                            {
+                                for(var id_pos_owning in selections['owning'])
+                                {   
+                                    // Need to introduce a "0" amount for non-present
+                                    branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos_owning]], branch_obj['branch'][selections['borrowing'][id_pos]], '0', branch_table_html);
+                                }
                             }
                         }
                         branch_table_html += "</tbody></table>";
                     }
-                    if(ob['amount_cluster'])
+                    if(data['amount_cluster'])
                     {
                         cluster_table_html = "<table id = 'bnl_cluster_table'><thead><tr><th>Owning Cluster</th><th>Borrowing Cluster</th><th>Amount</th></tr></thead><tbody>";
-                        for (var borrow_id in ob['amount_cluster'])
+                        for (var borrow_id in data['amount_cluster'])
                         {
-                            for (var owning_id in ob['amount_cluster'][borrow_id])
+                            for (var owning_id in data['amount_cluster'][borrow_id])
                             {
-                                cluster_table_html += "<tr>";
-                                cluster_table_html += "<td class='bnl_branch_table_owning_lib'>"+branch_obj['cluster'][owning_id]['name']+"</td>\n";
-                                cluster_table_html += "<td class='bnl_branch_table_borrowing_lib'>"+branch_obj['cluster'][borrow_id]['name']+"</td>\n";
-                                cluster_table_html += "<td class='bnl_branch_table_borrowing_lib'>"+ob['amount_cluster'][borrow_id][owning_id]+"</td>\n";
-                                cluster_table_html += "</tr>";
+                                cluster_table_html = addHTMLRow('cluster', branch_obj['cluster'][owning_id]['name'], branch_obj['cluster'][borrow_id]['name'], data['amount_cluster'][borrow_id][owning_id], cluster_table_html);
                             }
                         }
                         cluster_table_html += "</tbody></table>";
@@ -193,6 +207,16 @@ jQuery(document).ready(function()
                        } );
                     });
             }
+        }
+        
+        function addHTMLRow(type, owningBranchName, borrowingBranchName, amount, HTML)
+        {
+            HTML += "<tr>";
+            HTML += "<td class='bnl_branch_table_"+type+"_owning_lib'>"+owningBranchName+"</td>\n";
+            HTML += "<td class='bnl_branch_table_borrowing_lib'>"+borrowingBranchName+"</td>\n";
+            HTML += "<td class='bnl_branch_table_borrowing_lib'>"+amount+"</td>\n";
+            HTML += "</tr>";
+            return HTML;
         }
 
         function getMultiSelectOptionsForQueryString(dropdown_vals)
@@ -223,6 +247,8 @@ jQuery(document).ready(function()
         
         function getMultiSelectOptions(dropdown_vals)
         {
+            // This function creates an array of all of the libraries that are included in the users selection
+            // Handling the non-selections as ALL
             var tarray = ["owning","borrowing"];
             var ret = 
             {
@@ -232,6 +258,7 @@ jQuery(document).ready(function()
             for(var i in tarray)
             {
                 var type = tarray[i];
+                var somethingSpecified = 0;
                 for(var drop_type in dropdown_vals)
                 {
                     var qstring = drop_type + "_" + type;
@@ -239,6 +266,7 @@ jQuery(document).ready(function()
                     if(jQuery(dom).val() && jQuery(dom).val().length > 0)
                     {
                         var a = jQuery(dom).val();
+                        somethingSpecified = 1;
                         switch (drop_type)
                         {
                             case 'branch':
@@ -265,33 +293,12 @@ jQuery(document).ready(function()
                                 }
                         }
                     }
-                    else // no selection means all
+                }
+                if(!somethingSpecified) // All branches are included when no clusters, no systems, no branches are selected
+                {
+                    for(var branch in branch_obj['branch'])
                     {
-                        switch (drop_type)
-                        {
-                            case 'branch':
-                                for(var j in a)
-                                {
-                                    ret[type].push(a[j]);
-                                }
-                            break;
-                            default:
-                                var associative = {};
-                                for(var k in a)
-                                {
-                                    associative[a[k]] = 1;
-                                }
-                                for(var branch in branch_obj['branch_to_cluster'])
-                                {
-                                    for(var cluster_id in branch_obj['branch_to_cluster'][branch])
-                                    {
-                                        if(associative[cluster_id])
-                                        {
-                                            ret[type].push(branch);
-                                        }
-                                    }
-                                }
-                        }
+                        ret[type].push(branch);
                     }
                 }
             }

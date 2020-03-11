@@ -310,7 +310,7 @@ sub normalizeNames
     ".$self->{prefix}."_normalize_library_name(mbnbn.variation) = ".$self->{prefix}."_normalize_library_name(mbb.institution) AND
     mbb.institution != mbnbn.normalized AND
     lower(mbnbn.variation) != lower(mbb.institution) AND
-    mbb.institution not in(select normalized from ".$self->{prefix}."_normalize_branch_name)
+    mbb.institution not in(select variation from ".$self->{prefix}."_normalize_branch_name)
     group by 1,2
     ";
     $self->{log}->addLine($query);    
@@ -373,7 +373,7 @@ sub normalizeNames
     WHERE
     branch.institution = bnf.name AND
     branch.institution NOT IN (SELECT variation FROM ".$self->{prefix}."_normalize_branch_name) AND
-    branch.final_branch != bnf.id
+    (branch.final_branch != bnf.id OR branch.final_branch IS NULL)
     ";
     $self->{log}->addLine($query);    
     print "UPDATING BRANCH TO FINAL ID without normalization ".$self->{prefix}."_branch_name_final\n" if $self->{debug};
