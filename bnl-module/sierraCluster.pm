@@ -73,12 +73,12 @@ sub translateShortCodes
         }
         catch
         {
-            ## Couldn't connect
+            $self->{postgresConnector} = 0;
         };
     }
     else
     {
-        $worked = 1;
+        $worked = 1 if($self->{postgresConnector}->getQuote(""));
     }
     if($worked)
     {
@@ -115,7 +115,8 @@ sub translateShortCodes
         $self->{log}->addLine($query);
         $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);
-        
+
+        # Update the full names from those from postgres but do not get overridden by the branch_shortname_translate table
         $query = "
         UPDATE 
         $self->{prefix}"."_branch branch,
@@ -127,8 +128,26 @@ sub translateShortCodes
         cluster.id = branch.cluster and
         bnl_stage.owning_lib = branch.shortname and
         cluster.name = ? and
+        branch.shortname not in(select shortname from $self->{prefix}"."_branch_shortname_translate)
         bnl_stage.working_hash = ?";
         @vals = ($self->{name}, $randomHash);
+        $self->{log}->addLine($query);
+        $self->{log}->addLine(Dumper(\@vals));
+        $self->{dbHandler}->updateWithParameters($query,\@vals);
+
+        # Update the full names from those that are overridden by the branch_shortname_translate table
+        $query = "
+        UPDATE 
+        $self->{prefix}"."_branch branch,
+        $self->{prefix}"."_branch_shortname_translate shortname_trans,
+        $self->{prefix}"."_cluster cluster
+        set
+        branch.institution = shortname_trans.institution
+        WHERE
+        cluster.id = branch.cluster and
+        cluster.name = ? and
+        branch.shortname = shortname_trans.shortname and
+        bnl_stage.working_hash = ?";
         $self->{log}->addLine($query);
         $self->{log}->addLine(Dumper(\@vals));
         $self->{dbHandler}->updateWithParameters($query,\@vals);

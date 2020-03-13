@@ -111,7 +111,8 @@ if(@all[1])
             $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug);
         }
         $cluster->normalizeNames();
-        $cluster->scrape();
+        exit;
+        # $cluster->scrape();
     }
 }   
 
@@ -129,9 +130,12 @@ sub getClusters
     name,type
     FROM
     $stagingTablePrefix"."_cluster
-    where type='innreach'
-    -- where type='sierra' and name='merlin'
+    where
+    scrape_data is true
+    and type='innreach'
+    -- and type='sierra' and name='merlin'
     order by 2 desc,1
+    -- limit 10 offset 6
     ";
     # where type='innreach' and name='prospector'
     $log->addLogLine($query);
@@ -226,13 +230,22 @@ sub createDatabase
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_cluster ";
         $log->addLine($query);
         $dbHandler->update($query);
-        my $query = "DROP FUNCTION IF EXISTS $stagingTablePrefix"."_normalize_library_name";
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_final_cluster_map ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP FUNCTION IF EXISTS $stagingTablePrefix"."_normalize_library_name ";
         $log->addLine($query);
         $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_ignore_name ";
         $log->addLine($query);
         $dbHandler->update($query);
+        my $query = "DROP TABLE $stagingTablePrefix"."_branch_shortname_translate ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_normalize_branch_name ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP TABLE $stagingTablePrefix"."_manual_branch_to_cluster ";
         $log->addLine($query);
         $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_bnl_stage ";
@@ -267,8 +280,8 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
-        
+
+
         ##################
         # TABLES
         ##################
@@ -373,8 +386,20 @@ sub createDatabase
         variation varchar(100),
         normalized varchar(100),
         PRIMARY KEY (id),
-        INDEX (variation),
+        UNIQUE INDEX (variation),
         INDEX (normalized)
+        )
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        $query = "CREATE TABLE $stagingTablePrefix"."_branch_shortname_translate (
+        id int not null auto_increment,
+        shortname varchar(100),
+        institution varchar(100),
+        PRIMARY KEY (id),
+        UNIQUE INDEX (shortname),
+        INDEX (institution)
         )
         ";
         $log->addLine($query) if $debug;
@@ -396,7 +421,7 @@ sub createDatabase
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_final_cluster_map
         AS
         SELECT
-        final_branch.id as "id", group_concat(distinct cluster.type) as "types"
+        final_branch.id as \"id\", group_concat(distinct cluster.type) as \"types\"
         from
         $stagingTablePrefix"."_branch branch,
         $stagingTablePrefix"."_branch_name_final final_branch,

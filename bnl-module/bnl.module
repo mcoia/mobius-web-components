@@ -216,7 +216,7 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
             bnl.borrowing_branch = bnl_borrowing_branch.id and
             bnl.owning_branch = bnl_owning_branch.id and
             bnl_borrowing_branch.id = borrowing_cluster_ids.sid and
-            bnl_owning_branch.id = owning_cluster_ids.sid and            
+            bnl_owning_branch.id = owning_cluster_ids.sid and
             bnl.borrow_date between str_to_date( concat(?,'-01') ,'%Y-%m-%d') and str_to_date( concat(?,'-01') ,'%Y-%m-%d')
             and bnl.quantity > 0
             ";
