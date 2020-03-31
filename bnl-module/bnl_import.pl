@@ -91,12 +91,15 @@ my $writePid = new Loghandler($pidfile);
 $writePid->truncFile("running");
 
 my $cwd = getcwd();
+$cwd .= "/screenshots";
 
 my @all = @{getClusters()};
 if(@all[1])
 {
     my @order = @{@all[1]};
     my %clusters = %{@all[0]};
+    mkdir $cwd unless -d $cwd;
+
     print "Months Back $monthsBack\n";
     foreach(@order)
     {
@@ -110,9 +113,7 @@ if(@all[1])
         {
             $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug);
         }
-        $cluster->normalizeNames();
-        exit;
-        # $cluster->scrape();
+        $cluster->scrape();
     }
 }   
 
@@ -132,12 +133,24 @@ sub getClusters
     $stagingTablePrefix"."_cluster
     where
     scrape_data is true
-    and type='innreach'
-    -- and type='sierra' and name='merlin'
+    -- and   name = 'MERLIN'
     order by 2 desc,1
     -- limit 10 offset 6
     ";
     # where type='innreach' and name='prospector'
+    # and
+    # (
+    # (
+    # type='innreach'
+    # and name='Prospector'
+    # )
+    # or
+    # (
+    # type='sierra'
+    # and name='Archway'
+    # )
+    # )
+    # -- and type='sierra' and name='merlin'
     $log->addLogLine($query);
     my @results = @{$dbHandler->query($query)};
     foreach(@results)
@@ -174,7 +187,7 @@ sub initializeBrowser
             binary => '/usr/bin/geckodriver',
             browser_name  => 'firefox',
         );
-    $driver->set_window_size(1200,1500);
+    $driver->set_window_size(1200,2500);
 }
 
 sub closeBrowser
@@ -230,7 +243,13 @@ sub createDatabase
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_cluster ";
         $log->addLine($query);
         $dbHandler->update($query);
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_cluster_owner_filter ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_final_cluster_map ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_bnl_final_branch_map ";
         $log->addLine($query);
         $dbHandler->update($query);
         my $query = "DROP FUNCTION IF EXISTS $stagingTablePrefix"."_normalize_library_name ";
@@ -239,7 +258,7 @@ sub createDatabase
         my $query = "DROP TABLE $stagingTablePrefix"."_ignore_name ";
         $log->addLine($query);
         $dbHandler->update($query);
-        my $query = "DROP TABLE $stagingTablePrefix"."_branch_shortname_translate ";
+        my $query = "DROP TABLE $stagingTablePrefix"."_branch_shortname_agency_translate ";
         $log->addLine($query);
         $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_normalize_branch_name ";
@@ -393,7 +412,7 @@ sub createDatabase
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
         
-        $query = "CREATE TABLE $stagingTablePrefix"."_branch_shortname_translate (
+        $query = "CREATE TABLE $stagingTablePrefix"."_branch_shortname_agency_translate (
         id int not null auto_increment,
         shortname varchar(100),
         institution varchar(100),
@@ -418,6 +437,34 @@ sub createDatabase
         # VIEWS
         ##################
         $query = "
+        CREATE OR REPLACE VIEW $stagingTablePrefix"."_bnl_final_branch_map
+        AS
+        SELECT
+        owning_cluster.type \"cluster_type\",
+        owning_branch_final.id \"owning_id\",
+        borrowing_branch_final.id \"borrowing_id\",
+        bnl.borrow_date \"borrow_date\",
+        bnl.quantity \"quantity\"
+        from
+        $stagingTablePrefix"."_bnl bnl,
+        $stagingTablePrefix"."_cluster owning_cluster,
+        $stagingTablePrefix"."_cluster borrowing_cluster,
+        $stagingTablePrefix"."_branch owning_branch,
+        $stagingTablePrefix"."_branch borrowing_branch,
+        $stagingTablePrefix"."_branch owning_branch_final,
+        $stagingTablePrefix"."_branch borrowing_branch_final
+        WHERE
+        bnl.owning_branch = owning_branch.id AND
+        bnl.owning_cluster = owning_cluster.id AND
+        bnl.borrowing_branch = borrowing_branch.id AND
+        bnl.borrowing_cluster = borrowing_cluster.id AND
+        owning_branch.final_branch = owning_branch_final.id AND
+        borrowing_branch.final_branch = borrowing_branch_final.id
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_final_cluster_map
         AS
         SELECT
@@ -427,9 +474,22 @@ sub createDatabase
         $stagingTablePrefix"."_branch_name_final final_branch,
         $stagingTablePrefix"."_cluster cluster
         where
-        branch.final_branch = final_branch.id and
+        branch.final_branch = final_branch.id AND
         branch.cluster = cluster.id
         group by 1
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        $query = "
+        CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster_owner_filter
+        AS
+        SELECT
+        branch.id,branch.cluster
+        FROM
+        $stagingTablePrefix"."_branch branch
+        WHERE
+        lower(trim(branch.shortname)) not in(select lower(trim(shortname)) from $stagingTablePrefix"."_branch_shortname_agency_translate)
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
@@ -444,8 +504,11 @@ sub createDatabase
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
         $stagingTablePrefix"."_branch_name_final final_branch,
         $stagingTablePrefix"."_branch branch,
-        $stagingTablePrefix"."_cluster cluster
+        $stagingTablePrefix"."_cluster cluster,
+        $stagingTablePrefix"."_branch_cluster_owner_filter cluster_filter
         WHERE
+        branch.id=cluster_filter.id AND
+        cluster_filter.cluster = cluster.id AND
         branch.final_branch = final_branch.id AND
         cluster_map.id=branch.final_branch AND
         cluster.id=branch.cluster AND
@@ -464,8 +527,11 @@ sub createDatabase
         $stagingTablePrefix"."_branch branch,
         $stagingTablePrefix"."_branch sierra_branch,
         $stagingTablePrefix"."_cluster cluster,
-        $stagingTablePrefix"."_cluster sierra_cluster
+        $stagingTablePrefix"."_cluster sierra_cluster,
+        $stagingTablePrefix"."_branch_cluster_owner_filter cluster_filter
         WHERE
+        sierra_branch.id=cluster_filter.id AND
+        cluster_filter.cluster = sierra_cluster.id AND
         sierra_branch.final_branch = branch.final_branch AND
         sierra_branch.cluster = sierra_cluster.id AND
         branch.final_branch = final_branch.id AND
@@ -485,8 +551,11 @@ sub createDatabase
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
         $stagingTablePrefix"."_branch_name_final final_branch,
         $stagingTablePrefix"."_branch branch,
-        $stagingTablePrefix"."_cluster cluster
+        $stagingTablePrefix"."_cluster cluster,
+        $stagingTablePrefix"."_branch_cluster_owner_filter cluster_filter
         WHERE
+        branch.id=cluster_filter.id AND
+        cluster_filter.cluster = cluster.id AND
         branch.final_branch = final_branch.id AND
         cluster_map.id=branch.final_branch AND
         cluster.id=branch.cluster AND
@@ -503,14 +572,16 @@ sub createDatabase
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
         $stagingTablePrefix"."_branch_name_final final_branch,
         $stagingTablePrefix"."_branch branch,
-        $stagingTablePrefix"."_cluster cluster
+        $stagingTablePrefix"."_cluster cluster,
+        $stagingTablePrefix"."_branch_cluster_owner_filter cluster_filter
         WHERE
+        branch.id=cluster_filter.id AND
+        cluster_filter.cluster = cluster.id AND
         branch.final_branch = final_branch.id AND
         cluster_map.id=branch.final_branch AND
         cluster.id=branch.cluster AND
         lower(cluster.type) = 'sierra' AND
         lower(cluster_map.types) NOT LIKE '%innreach%'
-
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);

@@ -34,6 +34,7 @@ sub scrape
             $pos++;
             $continue = handleCircStatOwningHome($self,1) if $continue;
         }
+        $self->SUPER::cleanDuplicates();
     }
 }
 
@@ -61,7 +62,7 @@ sub collectReportData
 sub translateShortCodes
 {
     my ($self) = shift;
-    
+
     my $worked = 0;
     if( !$self->{postgresConnector})
     {
@@ -83,7 +84,7 @@ sub translateShortCodes
     if($worked)
     {
         my $randomHash = $self->generateRandomString(12);
-        my $query = 
+        my $query =
         "
         select svb.code_num,svl.code,svbn.name,svbn.branch_id 
         from
@@ -112,9 +113,7 @@ sub translateShortCodes
             push @vals, ($randomHash, $self->trim(@row[1]), $self->trim(@row[2]));
         }
         $query = substr($query,0,-2);
-        $self->{log}->addLine($query);
-        $self->{log}->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
+        $self->doUpdateQuery($query,"translateShortCodes INSERT $self->{prefix}"."_bnl_stage",\@vals);
 
         # Update the full names from those from postgres but do not get overridden by the branch_shortname_translate table
         $query = "
@@ -128,42 +127,28 @@ sub translateShortCodes
         cluster.id = branch.cluster and
         bnl_stage.owning_lib = branch.shortname and
         cluster.name = ? and
-        branch.shortname not in(select shortname from $self->{prefix}"."_branch_shortname_translate)
+        branch.shortname not in(select shortname from $self->{prefix}"."_branch_shortname_agency_translate) and
         bnl_stage.working_hash = ?";
         @vals = ($self->{name}, $randomHash);
-        $self->{log}->addLine($query);
-        $self->{log}->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
-
-        # Update the full names from those that are overridden by the branch_shortname_translate table
-        $query = "
-        UPDATE 
-        $self->{prefix}"."_branch branch,
-        $self->{prefix}"."_branch_shortname_translate shortname_trans,
-        $self->{prefix}"."_cluster cluster
-        set
-        branch.institution = shortname_trans.institution
-        WHERE
-        cluster.id = branch.cluster and
-        cluster.name = ? and
-        branch.shortname = shortname_trans.shortname and
-        bnl_stage.working_hash = ?";
-        $self->{log}->addLine($query);
-        $self->{log}->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
-
-        ## And clear out our staging table
-        $query = "
-        DELETE FROM $self->{prefix}"."_bnl_stage
-        WHERE
-        working_hash = ?
-        ";
-        $self->{log}->addLine($query);
-        @vals = ($randomHash);
-        $self->{log}->addLine(Dumper(\@vals));
-        $self->{dbHandler}->updateWithParameters($query,\@vals);
+        $self->doUpdateQuery($query,"translateShortCodes branch.institution = bnl_stage.borrowing_lib UPDATE $self->{prefix}"."_branch",\@vals);
         undef @vals;
     }
+
+    # Update the full names from those that are overridden by the branch_shortname_translate table
+    my @vals =  ($self->{name});
+    my $query = "
+    UPDATE 
+    $self->{prefix}"."_branch branch,
+    $self->{prefix}"."_branch_shortname_agency_translate shortname_trans,
+    $self->{prefix}"."_cluster cluster
+    set
+    branch.institution = shortname_trans.institution
+    WHERE
+    cluster.id = branch.cluster and
+    cluster.name = ? and
+    branch.shortname = shortname_trans.shortname";
+    $self->doUpdateQuery($query,"translateShortCodes branch.institution = shortname_trans.institution UPDATE $self->{prefix}"."_branch",\@vals);
+
 }
 
 sub handleReportSelection

@@ -10,9 +10,25 @@
 
 # sleep 5
 
-./bnl_import.pl --log /mnt/evergreen/tmp/bnl/bnl_log.log --drupal-config settings.php --dbSeed db_seed.db --recreateDB
+# ./bnl_import.pl --log /mnt/evergreen/tmp/bnl/bnl_log.log --drupal-config settings.php --dbSeed db_seed.db --recreateDB --debug --blindDate --monthsBack 3
+./bnl_import.pl --log /mnt/evergreen/tmp/bnl/bnl_log.log --drupal-config settings.php --debug --blindDate --monthsBack 3
 
 # # Make sure all the leftover stuff isn't running
 # ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 # ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 # ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+
+
+# Query to investigate the library naming issues:
+
+# SELECT
+# DISTINCT
+# branch.institution,(select normalized from mobius_bnl_normalize_branch_name where branch.institution=variation),final.name,GROUP_CONCAT(distinct cluster.name)
+# from 
+# mobius_bnl_branch_name_final final,
+# mobius_bnl_branch branch,
+# mobius_bnl_cluster cluster
+# WHERE
+# cluster.id=branch.cluster and
+# final.id=branch.final_branch
+# group by 1,2,3

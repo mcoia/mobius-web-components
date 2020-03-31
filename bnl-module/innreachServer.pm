@@ -32,9 +32,9 @@ sub scrape
             $pos++;
             $continue = handleLandingPage($self);
         }
+        $self->SUPER::cleanDuplicates();
     }
 }
-
 
 sub collectReportData
 {
