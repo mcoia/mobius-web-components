@@ -133,9 +133,9 @@ sub getClusters
     $stagingTablePrefix"."_cluster
     where
     scrape_data is true
-    -- and   name = 'MERLIN'
+    and name = 'MERLIN'
     order by 2 desc,1
-    -- limit 10 offset 6
+    -- limit 10 offset 3
     ";
     # where type='innreach' and name='prospector'
     # and
@@ -240,13 +240,19 @@ sub createDatabase
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_same_branch_normal_name ";
         $log->addLine($query);
         $dbHandler->update($query);
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_connection_map ";
+        $log->addLine($query);
+        $dbHandler->update($query);
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_system ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_cluster ";
         $log->addLine($query);
         $dbHandler->update($query);
-        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_cluster_owner_filter ";
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_final_cluster_map ";
         $log->addLine($query);
         $dbHandler->update($query);
-        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_final_cluster_map ";
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_cluster_owner_filter ";
         $log->addLine($query);
         $dbHandler->update($query);
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_bnl_final_branch_map ";
@@ -317,7 +323,8 @@ sub createDatabase
         postgres_port varchar(100),
         postgres_username varchar(100),
         postgres_password varchar(100),
-        PRIMARY KEY (id)
+        PRIMARY KEY (id),
+        INDEX (name)
         )
         ";
         $log->addLine($query) if $debug;
@@ -343,6 +350,7 @@ sub createDatabase
         PRIMARY KEY (id),
         UNIQUE INDEX (cluster, shortname),
         INDEX (institution_normal),
+        INDEX (shortname),
         FOREIGN KEY (final_branch) REFERENCES $stagingTablePrefix"."_branch_name_final(id) ON DELETE CASCADE,
         FOREIGN KEY (cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE
         )
@@ -361,7 +369,7 @@ sub createDatabase
         match_key varchar(50),
         insert_time datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
-        INDEX (match_key),
+        INDEX (borrow_date),
         UNIQUE INDEX (owning_cluster, owning_branch, borrowing_cluster, borrowing_branch, borrow_date),
         FOREIGN KEY (owning_cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE,
         FOREIGN KEY (borrowing_cluster) REFERENCES $stagingTablePrefix"."_cluster(id) ON DELETE CASCADE,
@@ -382,7 +390,10 @@ sub createDatabase
         match_key varchar(50),
         insert_time datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
-        INDEX (match_key)
+        INDEX (match_key),
+        INDEX (owning_lib),
+        INDEX (owning_lib),
+        INDEX (working_hash)
         )
         ";
         $log->addLine($query) if $debug;
@@ -451,8 +462,8 @@ sub createDatabase
         $stagingTablePrefix"."_cluster borrowing_cluster,
         $stagingTablePrefix"."_branch owning_branch,
         $stagingTablePrefix"."_branch borrowing_branch,
-        $stagingTablePrefix"."_branch owning_branch_final,
-        $stagingTablePrefix"."_branch borrowing_branch_final
+        $stagingTablePrefix"."_branch_name_final owning_branch_final,
+        $stagingTablePrefix"."_branch_name_final borrowing_branch_final
         WHERE
         bnl.owning_branch = owning_branch.id AND
         bnl.owning_cluster = owning_cluster.id AND
@@ -460,23 +471,6 @@ sub createDatabase
         bnl.borrowing_cluster = borrowing_cluster.id AND
         owning_branch.final_branch = owning_branch_final.id AND
         borrowing_branch.final_branch = borrowing_branch_final.id
-        ";
-        $log->addLine($query) if $debug;
-        $dbHandler->update($query);
-        
-        $query = "
-        CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_final_cluster_map
-        AS
-        SELECT
-        final_branch.id as \"id\", group_concat(distinct cluster.type) as \"types\"
-        from
-        $stagingTablePrefix"."_branch branch,
-        $stagingTablePrefix"."_branch_name_final final_branch,
-        $stagingTablePrefix"."_cluster cluster
-        where
-        branch.final_branch = final_branch.id AND
-        branch.cluster = cluster.id
-        group by 1
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
@@ -495,11 +489,30 @@ sub createDatabase
         $dbHandler->update($query);
 
         $query = "
+        CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_final_cluster_map
+        AS
+        SELECT
+        final_branch.id as \"id\", group_concat(distinct cluster.type) as \"types\"
+        from
+        $stagingTablePrefix"."_branch branch,
+        $stagingTablePrefix"."_branch_name_final final_branch,
+        $stagingTablePrefix"."_cluster cluster,
+        $stagingTablePrefix"."_branch_cluster_owner_filter owner_filter
+        where
+        owner_filter.id = branch.id AND
+        branch.final_branch = final_branch.id AND
+        branch.cluster = cluster.id
+        group by 1
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster
         AS
         -- Find branches with that appear on innreach and sierra. Prefer sierra cluster ID for sierra entries
         select DISTINCT 
-        branch.id \"sid\",cluster.name \"cname\",cluster.id \"cid\"
+        final_branch.id \"fid\",cluster.name \"cname\",cluster.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
         $stagingTablePrefix"."_branch_name_final final_branch,
@@ -514,13 +527,14 @@ sub createDatabase
         cluster.id=branch.cluster AND
         lower(cluster.type) = 'sierra' AND
         lower(cluster_map.types) LIKE '%innreach%' AND
-        lower(cluster_map.types) LIKE '%sierra%'
+        lower(cluster_map.types) LIKE '%sierra%' AND
+        lower(final_branch.name) NOT IN(select lower(name) from $stagingTablePrefix"."_manual_branch_to_cluster)
         
         UNION ALL
         
         -- Find branches with that appear on innreach and sierra. Prefer sierra cluster ID for innreach entries
         select DISTINCT 
-        branch.id \"sid\",sierra_cluster.name \"cname\",sierra_cluster.id \"cid\"
+        final_branch.id \"fid\",sierra_cluster.name \"cname\",sierra_cluster.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
         $stagingTablePrefix"."_branch_name_final final_branch,
@@ -540,34 +554,35 @@ sub createDatabase
         lower(sierra_cluster.type) = 'sierra' AND
         lower(cluster.type) = 'innreach' AND
         lower(cluster_map.types) LIKE '%innreach%' AND
-        lower(cluster_map.types) LIKE '%sierra%'
+        lower(cluster_map.types) LIKE '%sierra%' AND
+        lower(final_branch.name) NOT IN(select lower(name) from $stagingTablePrefix"."_manual_branch_to_cluster)
 
         UNION ALL
 
-        -- Find branches that appear on innreach only
+        -- Find branches that appear on innreach only AND ARE manually assigned a cluster
         select DISTINCT 
-        branch.id \"sid\",cluster.name \"cname\",cluster.id \"cid\"
+        final_branch.id \"fid\",cluster_assigned.name \"cname\",cluster_assigned.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
         $stagingTablePrefix"."_branch_name_final final_branch,
         $stagingTablePrefix"."_branch branch,
         $stagingTablePrefix"."_cluster cluster,
-        $stagingTablePrefix"."_branch_cluster_owner_filter cluster_filter
+        $stagingTablePrefix"."_cluster cluster_assigned,
+        $stagingTablePrefix"."_manual_branch_to_cluster manual_branch_cluster
         WHERE
-        branch.id=cluster_filter.id AND
-        cluster_filter.cluster = cluster.id AND
+        lower(manual_branch_cluster.name) = lower(final_branch.name) AND
         branch.final_branch = final_branch.id AND
         cluster_map.id=branch.final_branch AND
-        cluster.id=branch.cluster AND
+        lower(cluster_assigned.name)=lower(manual_branch_cluster.cluster) AND
         lower(cluster.type) = 'innreach' AND
         lower(cluster_map.types) LIKE '%innreach%' AND
         lower(cluster_map.types) NOT LIKE '%sierra%'
-        
+
         UNION ALL
 
-        -- Find branches that appear on sierra only
+        -- Find branches that appear on sierra only AND are NOT manually assigned to a cluster
         select DISTINCT 
-        branch.id \"sid\",cluster.name \"cname\",cluster.id \"cid\"
+        final_branch.id \"fid\",cluster.name \"cname\",cluster.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
         $stagingTablePrefix"."_branch_name_final final_branch,
@@ -581,7 +596,100 @@ sub createDatabase
         cluster_map.id=branch.final_branch AND
         cluster.id=branch.cluster AND
         lower(cluster.type) = 'sierra' AND
+        lower(cluster_map.types) NOT LIKE '%innreach%' AND
+        lower(final_branch.name) NOT IN(select lower(name) from $stagingTablePrefix"."_manual_branch_to_cluster)
+        
+        UNION ALL
+
+        -- Find branches that appear on sierra only AND are manually assigned to a cluster
+        select DISTINCT 
+        final_branch.id \"fid\",cluster_assigned.name \"cname\",cluster_assigned.id \"cid\"
+        FROM
+        $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
+        $stagingTablePrefix"."_branch_name_final final_branch,
+        $stagingTablePrefix"."_branch branch,
+        $stagingTablePrefix"."_cluster cluster,
+        $stagingTablePrefix"."_cluster cluster_assigned,
+        $stagingTablePrefix"."_manual_branch_to_cluster manual_branch_cluster
+        WHERE
+        lower(manual_branch_cluster.name) = lower(final_branch.name) AND
+        branch.final_branch = final_branch.id AND
+        cluster_map.id=branch.final_branch AND
+        lower(cluster_assigned.name)=lower(manual_branch_cluster.cluster) AND
+        lower(cluster.type) = 'sierra' AND
         lower(cluster_map.types) NOT LIKE '%innreach%'
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "
+        CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_system
+        AS
+        -- Every branch that has a cluster assigned IS considered a MOBIUS branch,
+        -- and because we insert the MOBIUS system innreach entry in the cluster table first, we know
+        -- we can bubble up the MOBIUS cluster by getting the min(id)
+        select DISTINCT 
+        final_branch.id \"fid\",min(cluster_innreach.id) \"cid\"
+        FROM
+        $stagingTablePrefix"."_branch_cluster branch_cluster,
+        $stagingTablePrefix"."_branch_name_final final_branch,
+        $stagingTablePrefix"."_cluster cluster_innreach
+        WHERE
+        branch_cluster.fid = final_branch.id AND
+        lower(cluster_innreach.type) = 'innreach'
+        group by 1
+
+        UNION ALL
+
+        -- The rest of the branches are not MOBIUS - which, right now, is only Prospector
+        -- So we will get the max(id)
+        -- TODO - figure out a way to handle the case when there are more than 2 innreach systems in the data
+        select DISTINCT 
+        final_branch.id \"fid\",max(cluster_innreach.id) \"cid\"
+        FROM
+        $stagingTablePrefix"."_branch_name_final final_branch
+        LEFT JOIN  $stagingTablePrefix"."_branch_cluster branch_cluster on (branch_cluster.fid = final_branch.id),
+        $stagingTablePrefix"."_cluster cluster_innreach
+        WHERE
+        branch_cluster.fid IS NULL AND
+        lower(cluster_innreach.type) = 'innreach'
+        group by 1
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "
+        CREATE OR REPLACE VIEW  $stagingTablePrefix"."_branch_connection_map
+        AS
+        select
+        branch_final.id as \"fid\",
+        branch_final.name as \"fname\",
+        cluster.id \"cid\",
+        cluster.name as \"cname\",
+        cluster.type as \"ctype\"
+        from 
+        $stagingTablePrefix"."_branch_cluster branch_cluster,
+        $stagingTablePrefix"."_branch_name_final branch_final,
+        $stagingTablePrefix"."_cluster cluster
+        WHERE
+        branch_cluster.fid = branch_final.id AND
+        branch_cluster.cid=cluster.id
+
+        UNION ALL
+
+        select
+        branch_final.id as \"fid\",
+        branch_final.name as \"fname\",
+        cluster.id \"cid\",
+        cluster.name as \"cname\",
+        cluster.type as \"ctype\"
+        from 
+        $stagingTablePrefix"."_branch_system branch_system,
+        $stagingTablePrefix"."_branch_name_final branch_final,
+        $stagingTablePrefix"."_cluster cluster
+        WHERE
+        branch_system.fid = branch_final.id AND
+        branch_system.cid=cluster.id
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);

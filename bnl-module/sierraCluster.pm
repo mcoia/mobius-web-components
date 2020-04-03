@@ -93,7 +93,9 @@ sub translateShortCodes
         sierra_view.branch_name svbn
         where
         svbn.branch_id=svb.id and
-        svb.code_num=svl.branch_code_num
+        svb.code_num=svl.branch_code_num and
+        svbn.name is not null and
+        btrim(svbn.name) !=''
         ";
         
         $self->{log}->addLine("Connection to PG:\n$query");

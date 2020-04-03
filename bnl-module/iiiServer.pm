@@ -170,28 +170,25 @@ sub collectReportData
     ";
     $query .= "AND lower(trim(bnl_stage.borrowing_lib)) not in (select lower(trim(shortname)) from  $self->{prefix}"."_branch_shortname_agency_translate)" if (ref $self eq 'innreachServer');
     doUpdateQuery($self,$query,"INSERTING borrowing $self->{prefix}"."_branch",\@vals);
-    
+
     # Now that the branches exist and have an ID number, we can migrate from the staging table into production
-    ## Delete any conflicting rows
+
+    ## Create the matchkey on staging table
     $query = "
-    DELETE 
-    bnl_conflict
-    FROM
-    $self->{prefix}"."_bnl bnl_conflict,
-    (
-    SELECT
+    UPDATE
+    $self->{prefix}"."_bnl_stage bnl_stage,
+    $self->{prefix}"."_branch owning_branch_table,
+    $self->{prefix}"."_branch borrowing_branch_table,
+    $self->{prefix}"."_cluster cluster
+    SET
+    bnl_stage.match_key = 
     CONCAT(
     cluster.id,'-',
     owning_branch_table.id,'-',
     cluster.id,'-',
     borrowing_branch_table.id,'-',
     bnl_stage.borrow_date
-    ) as \"together\"
-    FROM
-    $self->{prefix}"."_bnl_stage bnl_stage,
-    $self->{prefix}"."_branch owning_branch_table,
-    $self->{prefix}"."_branch borrowing_branch_table,
-    $self->{prefix}"."_cluster cluster
+    )
     WHERE
     bnl_stage.working_hash = ? and
     cluster.name = ? and
@@ -199,10 +196,21 @@ sub collectReportData
     owning_branch_table.cluster = cluster.id and
     LOWER(borrowing_branch_table.shortname) = LOWER(bnl_stage.borrowing_lib) and
     borrowing_branch_table.cluster = cluster.id
-    ) as thejoiner
-    WHERE
-    bnl_conflict.match_key = thejoiner.together
     ";
+    doUpdateQuery($self,$query,"CREATE MATCHKEY ON $self->{prefix}"."_bnl_stage",\@vals);
+
+    ## Delete any conflicting rows
+    $query = "
+    DELETE 
+    bnl_conflict
+    FROM
+    $self->{prefix}"."_bnl bnl_conflict,    
+    $self->{prefix}"."_bnl_stage bnl_stage
+    WHERE
+    bnl_stage.working_hash = ? and
+    bnl_conflict.match_key = bnl_stage.match_key
+    ";
+    @vals = ($randomHash);
     doUpdateQuery($self,$query,"DELETE conflict $self->{prefix}"."_bnl",\@vals);
 
     ## Make the final insert
@@ -230,6 +238,7 @@ sub collectReportData
     LOWER(borrowing_branch_table.shortname) = LOWER(bnl_stage.borrowing_lib) and
     borrowing_branch_table.cluster = cluster.id
     ";
+    @vals = ($randomHash,$self->{name});
     doUpdateQuery($self,$query,"INSERTING $self->{prefix}"."_bnl",\@vals);
 
     ## And clear out our staging table
@@ -340,6 +349,20 @@ sub normalizeNames
     $query = "
     UPDATE 
     ".$self->{prefix}."_branch branch,
+    ".$self->{prefix}."_branch_name_final bnf,
+    ".$self->{prefix}."_normalize_branch_name nbn
+    SET
+    branch.final_branch = bnf.id
+    WHERE
+    lower(nbn.variation) = lower(branch.institution_normal) AND
+    bnf.name = nbn.normalized AND
+    branch.final_branch != bnf.id
+    ";
+    doUpdateQuery($self,$query,"UPDATING BRANCH TO FINAL ID through branch.institution_normal = variation normalization $self->{prefix}"."_branch_name_final",\@vals);
+
+    $query = "
+    UPDATE 
+    ".$self->{prefix}."_branch branch,
     ".$self->{prefix}."_branch_name_final bnf
     SET
     branch.final_branch = bnf.id
@@ -358,6 +381,15 @@ sub normalizeNames
     lower(bnf.name) = lower(nbn.variation)
     ";
     doUpdateQuery($self,$query,"DELETING FINAL BRANCHES THAT EXIST IN normalization $self->{prefix}"."_branch_name_final",\@vals);
+    
+    $query = "
+    DELETE bnf FROM 
+    ".$self->{prefix}."_branch_name_final bnf
+    LEFT JOIN ".$self->{prefix}."_branch branch on (branch.final_branch = bnf.id)
+    WHERE
+    branch.id is null
+    ";
+    doUpdateQuery($self,$query,"DELETING FINAL BRANCHES THAT NO LONGER ARE REFERENCED IN BRANCH $self->{prefix}"."_branch_name_final",\@vals);
 }
 
 sub cleanDuplicates

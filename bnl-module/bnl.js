@@ -27,11 +27,15 @@ jQuery(document).ready(function()
         function checkGetable()
         {
             jQuery("#bnl_submit_button").addClass('bnl_submit_not_allowed');
+            jQuery('#bnl_submit_button').unbind("click");
             if(jQuery("#daterange").val().length > 0)
             {
                 if(jQuery("#daterange").val().match(/\d{2}\/\d{4}\s\-\s\d{2}\/\d{4}/).length > 0)
                 {
                     jQuery("#bnl_submit_button").removeClass('bnl_submit_not_allowed');
+                    jQuery('#bnl_submit_button').click(function(){
+                     bnl_generate_branch_table('#bnl_branch_div', '#bnl_cluster_div', dropdown_vals);
+                });
                 }
             }
         }
@@ -115,14 +119,13 @@ jQuery(document).ready(function()
                     }
                 }
                 bnl_init_date();
-                jQuery('#bnl_submit_container').click(function(){
-                     bnl_generate_branch_table('#bnl_branch_div', '#bnl_cluster_div', dropdown_vals);
-                });
+                checkGetable();
             });
         }
 
         function bnl_generate_branch_table(branch_dom, cluster_dome, dropdown_vals)
         {
+            var includeZeros = jQuery("#show_zeros").is(':checked');
             var branch_table_html = "";
             var cluster_table_html = "";
             var startDate = bnlGetCookie('bnl_start_date');
@@ -156,23 +159,29 @@ jQuery(document).ready(function()
                                 used['owning'][owning_id] = 1;
                                 branch_table_html = addHTMLRow('branch', branch_obj['branch'][owning_id], branch_obj['branch'][borrow_id], data['amount_branch'][borrow_id][owning_id], branch_table_html);
                             }
-                            for (var id_pos in selections['owning'])
+                            if(includeZeros)
                             {
-                                if(!used['owning'][selections['owning'][id_pos]])
+                                for (var id_pos in selections['owning'])
                                 {
-                                    // Need to introduce a "0" amount for non-present
-                                    branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos]], branch_obj['branch'][borrow_id], '0', branch_table_html);
+                                    if(!used['owning'][selections['owning'][id_pos]])
+                                    {
+                                        // Need to introduce a "0" amount for non-present
+                                        branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos]], branch_obj['branch'][borrow_id], '0', branch_table_html);
+                                    }
                                 }
                             }
                         }
-                        for (var id_pos in selections['borrowing'])
+                        if(includeZeros)
                         {
-                            if(!used['borrowing'][selections['borrowing'][id_pos]])
+                            for (var id_pos in selections['borrowing'])
                             {
-                                for(var id_pos_owning in selections['owning'])
-                                {   
-                                    // Need to introduce a "0" amount for non-present
-                                    branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos_owning]], branch_obj['branch'][selections['borrowing'][id_pos]], '0', branch_table_html);
+                                if(!used['borrowing'][selections['borrowing'][id_pos]])
+                                {
+                                    for(var id_pos_owning in selections['owning'])
+                                    {   
+                                        // Need to introduce a "0" amount for non-present
+                                        branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos_owning]], branch_obj['branch'][selections['borrowing'][id_pos]], '0', branch_table_html);
+                                    }
                                 }
                             }
                         }
