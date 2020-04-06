@@ -111,6 +111,29 @@
     
 }
 
+#bnl_owning_summary_div_container {
+    float: left;
+    width: 48%;
+}
+
+#bnl_borrowing_summary_div_container {
+    float: right;
+    width: 48%;
+}
+
+.bnl-download-icon {
+    float: left;
+    margin: -2px 7px 0px 25px;
+    font-size: 18pt;
+    font-stretch: extra-expanded;
+}
+
+.bnl_csv_download_link {
+    margin-bottom: 2em;
+    cursor: pointer;
+    color: #078000;
+}
+
 .loader {
   border: 16px solid #f3f3f3; /* Light grey */
   border-top: 16px solid #3498db; /* Blue */

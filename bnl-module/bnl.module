@@ -86,8 +86,10 @@ function mobius_bnl_display()
     
     </div> <!-- bnl_filter_select_master_container -->
     <div id="bnl_data_tables">
-    <div id="bnl_owning_summary_div"></div>
-    <div id="bnl_borrowing_summary_div"></div>
+    <div id="bnl_summary_divs">
+    <div id="bnl_owning_summary_div_container"> <div id="bnl_owning_summary_div"></div>   </div>
+    <div id="bnl_borrowing_summary_div_container"> <div id="bnl_borrowing_summary_div"></div>   </div>
+    </div>
     <div id="bnl_branch_div"></div>
     <div id="bnl_cluster_div"></div>
     </div>
@@ -103,7 +105,7 @@ function mobius_bnl_display()
 function mobius_bnl_postback()
 {
     $data_array = array();
-    if($_GET['startdate'] && $_GET['enddate'])
+    if(isset($_GET['startdate']) && isset($_GET['enddate']))
     {
         mobius_borrowing_n_lending_json();  // calling headers
         $clusters = array
@@ -127,7 +129,7 @@ function mobius_bnl_postback()
 
         echo $data_array = drupal_json_encode($data_array);
     }
-    else if($_GET['get_branches'])
+    else if(isset($_GET['get_branches']))
     {
         mobius_borrowing_n_lending_json();  // calling headers
         mobius_bnl_get_all_branches($data_array);
@@ -222,8 +224,8 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
             mobius_bnl_branch bnl_owning_branch,
             mobius_bnl_branch_name_final bnl_borrowing_name,
             mobius_bnl_branch_name_final bnl_owning_name,
-            mobius_bnl_branch_cluster borrowing_cluster_ids,
-            mobius_bnl_branch_cluster owning_cluster_ids
+            mobius_bnl_branch_connection_map borrowing_cluster_ids,
+            mobius_bnl_branch_connection_map owning_cluster_ids
             WHERE
             bnl_borrowing_name.id = bnl_borrowing_branch.final_branch and
             bnl_owning_name.id = bnl_owning_branch.final_branch and
