@@ -133,7 +133,7 @@ sub getClusters
     $stagingTablePrefix"."_cluster
     where
     scrape_data is true
-    and name = 'MERLIN'
+    -- and name = 'Archway'
     order by 2 desc,1
     -- limit 10 offset 3
     ";
@@ -187,7 +187,7 @@ sub initializeBrowser
             binary => '/usr/bin/geckodriver',
             browser_name  => 'firefox',
         );
-    $driver->set_window_size(1200,2500);
+    $driver->set_window_size(1200,3500); # Need it wide to capture more of the header on those large HTML tables
 }
 
 sub closeBrowser

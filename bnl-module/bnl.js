@@ -30,7 +30,7 @@ jQuery(document).ready(function()
             jQuery('#bnl_submit_button').unbind("click");
             if(jQuery("#daterange").val().length > 0)
             {
-                if(jQuery("#daterange").val().match(/\d{2}\/\d{4}\s\-\s\d{2}\/\d{4}/).length > 0)
+                if(jQuery("#daterange").val().length > 0 && jQuery("#daterange").val().match(/\d{2}\/\d{4}\s\-\s\d{2}\/\d{4}/) !== null)
                 {
                     jQuery("#bnl_submit_button").removeClass('bnl_submit_not_allowed');
                     jQuery('#bnl_submit_button').click(function(){

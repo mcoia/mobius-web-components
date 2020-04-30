@@ -43,18 +43,50 @@ sub collectReportData
     my ($self) = shift;
     my $dbDate = shift;
     my @frameSearchElements = ('HOME LIBRARY TOTAL CIRCULATION');
-        
-    if(!$self->switchToFrame(\@frameSearchElements))
-    {
-        my $randomHash = $self->SUPER::collectReportData($dbDate);
 
-        ## Attempt to correct any unknown branches
-        translateShortCodes($self);
-        
-        $self->SUPER::normalizeNames();
+    if(handleRecalculate($self))
+    {
+        if(!$self->switchToFrame(\@frameSearchElements))
+        {
+            my $randomHash = $self->SUPER::collectReportData($dbDate);
+
+            ## Attempt to correct any unknown branches
+            translateShortCodes($self);
+
+            $self->SUPER::normalizeNames();
+        }
+        else
+        {
+            return 0;
+        }
+    }
+}
+
+sub handleRecalculate
+{
+    my ($self) = @_[0];
+    print "Clicking Recalculate\n";
+    my @frameSearchElements = ('htcircrep\/owning\/\/o\|a=T\&amp;34=on\|\|\|\|RECAL');
+    
+    if(!$self->switchToFrame(\@frameSearchElements))
+    {   
+        my $owning = $self->{driver}->execute_script("
+            var doms = document.getElementsByTagName('form');
+            for(var i=0;i<doms.length;i++)
+            {
+                doms[i].submit();
+            }
+        ");
+        sleep 1;
+        $self->{driver}->switch_to_frame();
+        my $finished = handleReportSelection_processing_waiting($self);
+        $self->takeScreenShot('handleRecalculate');
+        return $finished;
     }
     else
     {
+    print "didn't find htcircrep\/owning\/\/o\|a=T&33=on\|\|\|\|RECAL\n";
+    $self->takeScreenShot('handleRecalculate_notfound');
         return 0;
     }
 }
@@ -299,7 +331,6 @@ sub handleCircStatOwningHome
         }
     }
 
-    
     if(!$self->switchToFrame(\@frameSearchElements))
     {   
         my $owning = $self->{driver}->execute_script("
@@ -375,7 +406,7 @@ sub handleLoginPage
 
                 ");
                 $thisForm->submit();
-                sleep 1;                
+                sleep 1;
                 $self->takeScreenShot('handleLoginPage');
             }
         }

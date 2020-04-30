@@ -643,13 +643,17 @@ sub switchToFrame
     my $hasWhatIneed = 0;
     my $tries = 0;
     my $error = 0;
+    waitForPageLoad($self);
     while(!$hasWhatIneed)
     {
         try
         {
             $self->{driver}->switch_to_frame($frameNum); # This can throw an error if the frame doesn't exist
+            # print "Frame: $frameNum is good\n";
+            waitForPageLoad($self);
             my $body = $self->{driver}->execute_script("return document.getElementsByTagName('html')[0].innerHTML");            
             $body =~ s/[\r\n]//g;
+            # $self->{log}->addLine("page HTML: $body") if $self->{debug};
             my $notThere = 0;
             foreach(@pageVals)
             {
@@ -666,11 +670,13 @@ sub switchToFrame
         }
         catch
         {
+            # print "died at frame $frameNum\n";
             $frameNum++;
         };
         
         # walk back up to the parent frame        
         $self->{driver}->switch_to_frame();
+        waitForPageLoad($self);
         $tries++;
         $error = 1 if $tries > 10;
         $hasWhatIneed = 1 if $tries > 10;
@@ -690,16 +696,36 @@ sub switchToFrame
     return $error;
 }
 
+sub waitForPageLoad
+{
+    my ($self) = shift;
+    my $done = $self->{driver}->execute_script("return document.readyState === 'complete';");
+    # print "Page done: $done\n";
+    my $stop = 0;
+    my $tries = 0;
+    
+    while(!$done && !$stop)
+    {
+        $done = $self->{driver}->execute_script("return document.readyState === 'complete';");
+        print "Waiting for Page load check: $done\n";
+        $tries++;
+        $stop = 1 if $tries > 10;
+        $tries++;
+        sleep 1;
+    }
+    return $done;
+}
+
 sub takeScreenShot
 {
     my ($self) = shift;
     my $action = shift;
     $screenShotStep++;
+    waitForPageLoad($self);
     # $self->{log}->addLine("screenshot self: ".Dumper($self));
     # print "ScreenShot: ".$self->{screenshotDIR}."/".$self->{name}."_".$screenShotStep."_".$action.".png\n";
     $self->{driver}->capture_screenshot($self->{screenshotDIR}."/".$self->{name}."_".$screenShotStep."_".$action.".png", {'full' => 1});
 }
-
 
 sub generateRandomString
 {
