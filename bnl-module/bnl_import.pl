@@ -661,7 +661,7 @@ sub createDatabase
         $query = "
         CREATE OR REPLACE VIEW  $stagingTablePrefix"."_branch_connection_map
         AS
-        select
+        select DISTINCT
         branch_final.id as \"fid\",
         branch_final.name as \"fname\",
         cluster.id \"cid\",
@@ -677,7 +677,7 @@ sub createDatabase
 
         UNION ALL
 
-        select
+        select DISTINCT
         branch_final.id as \"fid\",
         branch_final.name as \"fname\",
         cluster.id \"cid\",

@@ -66,7 +66,7 @@ sub handleRecalculate
 {
     my ($self) = @_[0];
     print "Clicking Recalculate\n";
-    my @frameSearchElements = ('htcircrep\/owning\/\/o\|a=T\&amp;34=on\|\|\|\|RECAL');
+    my @frameSearchElements = ('RECAL');
     
     if(!$self->switchToFrame(\@frameSearchElements))
     {   
@@ -85,7 +85,7 @@ sub handleRecalculate
     }
     else
     {
-    print "didn't find htcircrep\/owning\/\/o\|a=T&33=on\|\|\|\|RECAL\n";
+    print "didn't find RECAL\n";
     $self->takeScreenShot('handleRecalculate_notfound');
         return 0;
     }

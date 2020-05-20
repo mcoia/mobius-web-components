@@ -273,7 +273,8 @@ sub normalizeNames
     ".$self->{prefix}."_normalize_branch_name mmbnbn
     WHERE
     mmbnbn.normalized = mbnd.normalized AND
-    lower(mbnd.variation) not in(SELECT lower(variation) FROM ".$self->{prefix}."_normalize_branch_name )
+    lower(mbnd.variation) not in(SELECT lower(variation) FROM ".$self->{prefix}."_normalize_branch_name ) AND
+    lower(mbnd.variation) not in(SELECT lower(normalized) FROM ".$self->{prefix}."_normalize_branch_name )
     ";
     doUpdateQuery($self,$query,"NORMALIZING INSERT INTO $self->{prefix}"."_branch_name_final",\@vals);
 
@@ -285,7 +286,8 @@ sub normalizeNames
     FROM
     ".$self->{prefix}."_branch_name_dedupe mbnd
     WHERE
-    lower(mbnd.variation) not in(SELECT lower(variation) FROM ".$self->{prefix}."_normalize_branch_name )
+    lower(mbnd.variation) not in(SELECT lower(variation) FROM ".$self->{prefix}."_normalize_branch_name ) AND
+    lower(mbnd.variation) not in(SELECT lower(normalized) FROM ".$self->{prefix}."_normalize_branch_name )
     ";
     doUpdateQuery($self,$query,"NORMALIZING INSERT INTO $self->{prefix}"."_branch_name_final",\@vals);
 
@@ -301,7 +303,8 @@ sub normalizeNames
     ".$self->{prefix}."_normalize_library_name(mbnbn.variation) = ".$self->{prefix}."_normalize_library_name(mbb.institution) AND
     mbb.institution != mbnbn.normalized AND
     lower(mbnbn.variation) != lower(mbb.institution) AND
-    lower(mbb.institution) not in(select lower(variation) from ".$self->{prefix}."_normalize_branch_name)
+    lower(mbb.institution) not in(select lower(variation) from ".$self->{prefix}."_normalize_branch_name) AND
+    lower(mbb.institution) not in(SELECT lower(normalized) FROM ".$self->{prefix}."_normalize_branch_name )
     group by 1,2
     ";
     doUpdateQuery($self,$query,"NORMALIZING INSERT INTO $self->{prefix}"."_branch_name_final",\@vals);
@@ -356,7 +359,7 @@ sub normalizeNames
     WHERE
     lower(nbn.variation) = lower(branch.institution_normal) AND
     bnf.name = nbn.normalized AND
-    branch.final_branch != bnf.id
+    (branch.final_branch != bnf.id or branch.final_branch IS NULL)
     ";
     doUpdateQuery($self,$query,"UPDATING BRANCH TO FINAL ID through branch.institution_normal = variation normalization $self->{prefix}"."_branch_name_final",\@vals);
 
@@ -378,7 +381,8 @@ sub normalizeNames
     ".$self->{prefix}."_branch_name_final bnf,
     ".$self->{prefix}."_normalize_branch_name nbn
     WHERE
-    lower(bnf.name) = lower(nbn.variation)
+    lower(bnf.name) = lower(nbn.variation) AND
+    bnf.id NOT IN(SELECT final_branch FROM ".$self->{prefix}."_branch)
     ";
     doUpdateQuery($self,$query,"DELETING FINAL BRANCHES THAT EXIST IN normalization $self->{prefix}"."_branch_name_final",\@vals);
     

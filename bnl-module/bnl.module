@@ -213,8 +213,8 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
                SELECT
            bnl_borrowing_name.name \"borrowing_branch_name\", bnl_borrowing_name.id \"borrowing_branch_id\",
            bnl_owning_name.name \"owning_branch_name\", bnl_owning_name.id \"owning_branch_id\",
-           borrowing_cluster_ids.cname \"borrowing_cluster_name\",borrowing_cluster_ids.cid \"borrowing_cluster_id\",
-           owning_cluster_ids.cname \"owning_cluster_name\",owning_cluster_ids.cid \"owning_cluster_id\",
+           (select min(cid) from mobius_bnl_branch_connection_map where fid=bnl_borrowing_branch.final_branch) \"borrowing_cluster_id\",
+           (select min(cid) from mobius_bnl_branch_connection_map where fid=bnl_owning_branch.final_branch) \"owning_cluster_id\",
            sum(bnl.quantity) \"quantity\"";
         }
         $fromClauseStart = "
@@ -223,22 +223,18 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
             mobius_bnl_branch bnl_borrowing_branch,
             mobius_bnl_branch bnl_owning_branch,
             mobius_bnl_branch_name_final bnl_borrowing_name,
-            mobius_bnl_branch_name_final bnl_owning_name,
-            mobius_bnl_branch_connection_map borrowing_cluster_ids,
-            mobius_bnl_branch_connection_map owning_cluster_ids
+            mobius_bnl_branch_name_final bnl_owning_name
             WHERE
             bnl_borrowing_name.id = bnl_borrowing_branch.final_branch and
             bnl_owning_name.id = bnl_owning_branch.final_branch and
             bnl.borrowing_branch = bnl_borrowing_branch.id and
             bnl.owning_branch = bnl_owning_branch.id and
-            bnl_borrowing_branch.final_branch = borrowing_cluster_ids.fid and
-            bnl_owning_branch.final_branch = owning_cluster_ids.fid and
             bnl.borrow_date between str_to_date( concat(?,'-01') ,'%Y-%m-%d') and str_to_date( concat(?,'-01') ,'%Y-%m-%d')
             and bnl.quantity > 0
             ";
 
         $fromClause = mobius_bnl_get_bnl_base_branches_from_clause($fromClauseStart, $vals, $branchSelections, 0);
-        $groupClause = ($summary ? " group by 1,2,3" : " group by 1,2,3,4,5,6,7,8");
+        $groupClause = ($summary ? " group by 1,2,3" : " group by 1,2,3,4,5,6");
         
         $query = $columns.$fromClause.$groupClause;
         
@@ -344,18 +340,37 @@ function mobius_bnl_get_bnl_base_branches_from_clause($fromClause, &$vals, $bran
             $clause = "\nAND (";
             $something = 0;
             $values = explode(',',$value);
+            $collection = "";
             foreach($values as $id)
             {
                 if(is_numeric($id)) // only digits allowed here
                 {
                     $something = 1;
-                    $clause .= "\n$key = ? \nOR";
-                    $vals[] = $id;
+                    if(preg_match("/cluster/", $key)) // Clusters are handle differently
+                    {
+                        $collection.="$id,";
+                    }
+                    else
+                    {
+                        $clause .= "\n$key = ? \nOR";
+                        $vals[] = $id;
+                    }
                 }
             }
-            $clause = substr($clause,0,-2); // chop off the last "OR"
-            $clause .= ")\n";
+            if(preg_match("/cluster/", $key)) // Clusters are handle differently
+            {
+                $collection = substr($collection,0,-1); // chop off the last ,
+                $type = ( preg_match("/owning/", $key) ? "owning" : "borrowing");
+                $type = "bnl_".$type."_name.id";
+                $clause .= "$type IN (SELECT fid FROM mobius_bnl_branch_connection_map WHERE cid IN ( $collection ) ) \n)";
+            }
+            else
+            {
+                $clause = substr($clause,0,-2); // chop off the last "OR"
+                $clause .= ")\n";
+            }
             $fromClause = ($something ? $fromClause.$clause : $fromClause);
+
         }
     }
     return $fromClause;
