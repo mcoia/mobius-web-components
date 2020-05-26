@@ -39,7 +39,6 @@ our $blindDate = 0;
 our $monthsBack = 1;
 
 
-    
 GetOptions (
 "log=s" => \$log,
 "drupal-config=s" => \$drupalconfig,
@@ -261,6 +260,9 @@ sub createDatabase
         my $query = "DROP FUNCTION IF EXISTS $stagingTablePrefix"."_normalize_library_name ";
         $log->addLine($query);
         $dbHandler->update($query);
+        my $query = "DROP TABLE $stagingTablePrefix"."_shortname_override ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_ignore_name ";
         $log->addLine($query);
         $dbHandler->update($query);
@@ -444,6 +446,16 @@ sub createDatabase
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
         
+        $query = "CREATE TABLE $stagingTablePrefix"."_shortname_override (
+        id int not null auto_increment,
+        shortname varchar(100),
+        institution varchar(100),
+        PRIMARY KEY (id)
+        )
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
         ##################
         # VIEWS
         ##################
@@ -618,6 +630,47 @@ sub createDatabase
         lower(cluster_assigned.name)=lower(manual_branch_cluster.cluster) AND
         lower(cluster.type) = 'sierra' AND
         lower(cluster_map.types) NOT LIKE '%innreach%'
+        
+        UNION ALL
+
+        -- Find branches that appear on sierra and innreach AND are manually assigned to a cluster
+        select DISTINCT 
+        final_branch.id \"fid\",cluster_assigned.name \"cname\",cluster_assigned.id \"cid\"
+        FROM
+        $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
+        $stagingTablePrefix"."_branch_name_final final_branch,
+        $stagingTablePrefix"."_branch branch,
+        $stagingTablePrefix"."_cluster cluster,
+        $stagingTablePrefix"."_cluster cluster_assigned,
+        $stagingTablePrefix"."_manual_branch_to_cluster manual_branch_cluster
+        WHERE
+        lower(manual_branch_cluster.name) = lower(final_branch.name) AND
+        branch.final_branch = final_branch.id AND
+        cluster_map.id=branch.final_branch AND
+        lower(cluster_assigned.name)=lower(manual_branch_cluster.cluster) AND
+        lower(cluster.type) = 'sierra' AND
+        lower(cluster_map.types) LIKE '%innreach%'
+        
+        UNION ALL
+
+        -- Find branches that appear on innreach only AND are NOT manually assigned to a cluster
+        select DISTINCT 
+        final_branch.id \"fid\",cluster.name \"cname\",cluster.id \"cid\"
+        FROM
+        $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
+        $stagingTablePrefix"."_branch_name_final final_branch,
+        $stagingTablePrefix"."_branch branch,
+        $stagingTablePrefix"."_cluster cluster,
+        $stagingTablePrefix"."_branch_cluster_owner_filter cluster_filter
+        WHERE
+        branch.id=cluster_filter.id AND
+        cluster_filter.cluster = cluster.id AND
+        branch.final_branch = final_branch.id AND
+        cluster_map.id=branch.final_branch AND
+        cluster.id=branch.cluster AND
+        lower(cluster.type) = 'innreach' AND
+        lower(cluster_map.types) NOT LIKE '%sierra%' AND
+        lower(final_branch.name) NOT IN(select lower(name) from $stagingTablePrefix"."_manual_branch_to_cluster)
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);

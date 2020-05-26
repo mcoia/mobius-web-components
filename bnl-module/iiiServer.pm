@@ -263,7 +263,19 @@ sub normalizeNames
     my ($self) = shift;
     my @vals = ();
 
+    
     my $query = "
+    UPDATE ".
+    $self->{prefix}."_branch branch,".
+    $self->{prefix}."_shortname_override bso
+    SET
+    branch.institution = bso.institution
+    WHERE
+    branch.shortname = bso.shortname
+    ";
+    doUpdateQuery($self,$query,"APPLING SHORTNAME_OVERRIDE $self->{prefix}"."_branch",\@vals);
+
+    $query = "
     INSERT INTO ".$self->{prefix}."_normalize_branch_name
     (variation,normalized)
     SELECT DISTINCT

@@ -53,6 +53,7 @@
 'ill'
 'mco'
 'meill'
+'sjy'
 
 [branch_shortname_agency_translate]
 '9mcmp','Colorado Mountain College'
@@ -382,4 +383,25 @@
 'MOBIUS - Columbia College','Columbia College'
 'AGTS','Evangel University'
 'Harris-Stowe State University Library','Harris-Stowe State University'
+'MST Library Circulation Desk','Missouri University of Science & Technology'
+'MU Ellis Library','University of Missouri-Columbia'
+'MU Engineering Library & Technology Commons','University of Missouri-Columbia'
+'MU Geology','University of Missouri-Columbia'
+'MU Health Sciences Library','University of Missouri-Columbia Health Sciences'
+'MU Journalism','University of Missouri-Columbia'
+'MU Law','University of Missouri-Columbia Law'
+'MU Math Sciences','University of Missouri-Columbia'
+'MU Veterinary Medical Library','University of Missouri-Columbia Health Sciences'
+'UM Libraries Depository','University of Missouri-Columbia'
+'UMKC HSL','University of Missouri-Kansas City'
+'UMKC Law Library, Circ. Dept','University of Missouri-Kansas City Law'
+'UMKC MNL','University of Missouri-Kansas City'
+'UMS Thomas Jefferson Library','University of Missouri-St. Louis'
+'University of Borthern Colorado','University of Northern Colorado'
+'University of Missouri-Law','University of Missouri-Columbia Law'
+'crl','Center for Research Libraries'
 
+
+[shortname_override]
+'frwb','Missouri University of Science & Technology'
+'fsb','University of Missouri-St. Louis'
