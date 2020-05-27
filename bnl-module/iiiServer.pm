@@ -413,9 +413,61 @@ sub cleanDuplicates
     my ($self) = shift;
     my @vals = ();
 
-    ## Delete innreach duplicates
+    
+    ## Delete 6/9 -> 6/9
     my $query = "
-    delete bnl FROM
+    DELETE bnl    
+    FROM
+    $self->{prefix}"."_bnl bnl,
+    $self->{prefix}"."_branch owning_branch,
+    $self->{prefix}"."_branch borrowing_branch,
+    $self->{prefix}"."_branch_shortname_agency_translate owning_sixcodes,
+    $self->{prefix}"."_branch_shortname_agency_translate borrowing_sixcodes
+    where
+    owning_branch.id=bnl.owning_branch and
+    borrowing_branch.id=bnl.borrowing_branch and
+    owning_sixcodes.shortname=owning_branch.shortname and
+    borrowing_sixcodes.shortname=borrowing_branch.shortname
+    ";
+    doUpdateQuery($self,$query,"DELETE 6/9 onto itself $self->{prefix}"."_bnl",\@vals);
+
+    ## Delete 6/9 bnl data where cluster_a -> cluster_a (borrowing)
+    my $query = "
+    DELETE bnl
+    FROM
+    $self->{prefix}"."_bnl bnl,
+    $self->{prefix}"."_branch owning_branch,
+    $self->{prefix}"."_branch borrowing_branch,
+    $self->{prefix}"."_agency_owning_cluster agency
+    where
+    bnl.owning_branch = owning_branch.id and
+    bnl.borrowing_branch = borrowing_branch.id and
+    agency.cid=bnl.borrowing_cluster and
+    borrowing_branch.shortname=agency.shortname and
+    owning_branch.shortname not in(SELECT shortname FROM $self->{prefix}"."_branch_shortname_agency_translate)
+    ";
+    doUpdateQuery($self,$query,"DELETE 6/9 onto itself (borrowing) $self->{prefix}"."_bnl",\@vals);
+
+    ## Delete 6/9 bnl data where cluster_a -> cluster_a (owning)
+    my $query = "
+    DELETE bnl
+    FROM
+    $self->{prefix}"."_bnl bnl,
+    $self->{prefix}"."_branch owning_branch,
+    $self->{prefix}"."_branch borrowing_branch,
+    $self->{prefix}"."_agency_owning_cluster agency
+    where
+    bnl.owning_branch = owning_branch.id and
+    bnl.borrowing_branch = borrowing_branch.id and
+    agency.cid=bnl.owning_cluster and
+    owning_branch.shortname=agency.shortname and
+    borrowing_branch.shortname not in(SELECT shortname FROM $self->{prefix}"."_branch_shortname_agency_translate)
+    ";
+    doUpdateQuery($self,$query,"DELETE 6/9 onto itself (owning) $self->{prefix}"."_bnl",\@vals);
+
+    ## Delete innreach duplicates
+    $query = "
+    DELETE bnl FROM
     $self->{prefix}"."_bnl bnl,
     $self->{prefix}"."_branch owning_branch,
     $self->{prefix}"."_branch borrowing_branch,
@@ -451,7 +503,7 @@ sub cleanDuplicates
 
     ## Delete sierra->sierra duplicates (because of agency)
     $query = "
-    delete bnl1
+    DELETE bnl1
     from
     $self->{prefix}"."_bnl bnl1,
     $self->{prefix}"."_bnl bnl2,
@@ -486,7 +538,7 @@ sub cleanDuplicates
 
     ## Delete sierra->sierra duplicates (because of agency)
     $query = "
-    delete bnl2
+    DELETE bnl2
     from
     $self->{prefix}"."_bnl bnl1,
     $self->{prefix}"."_bnl bnl2,

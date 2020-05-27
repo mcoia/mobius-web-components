@@ -230,6 +230,9 @@ sub createDatabase
 
     if($recreateDB)
     {
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_agency_owning_cluster ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_name_dedupe ";
         $log->addLine($query);
         $dbHandler->update($query);
@@ -459,6 +462,9 @@ sub createDatabase
         ##################
         # VIEWS
         ##################
+
+        ## This view is used to make queries cleaner. 
+        ## Results in bnl final branch ID instead of branch ID for each bnl quantity
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_bnl_final_branch_map
         AS
@@ -487,6 +493,7 @@ sub createDatabase
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
         
+        ## Building block for compound view _branch_final_cluster_map
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster_owner_filter
         AS
@@ -500,6 +507,7 @@ sub createDatabase
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
 
+        ## Building block for compound view _branch_cluster
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_final_cluster_map
         AS
@@ -519,6 +527,8 @@ sub createDatabase
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
 
+        ## Creates a map between each branch and the clsuter they belong to.
+        ## This relies on the above views (above views are not used in this project)
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster
         AS
@@ -675,6 +685,7 @@ sub createDatabase
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
 
+        ## Creates a map between each branch and the system they belong to
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_system
         AS
@@ -751,13 +762,13 @@ sub createDatabase
         CREATE VIEW $stagingTablePrefix"."_same_branch_normal_name
         AS
         SELECT
-            mbb_inside.institution_normal \"normal_name\"
-            , count( * ) as \"count\"
-            FROM
-            $stagingTablePrefix"."_branch mbb_inside WHERE
-            lower(mbb_inside.institution) like '%library%'
-            group by 1
-            having count( * ) > 1
+        mbb_inside.institution_normal \"normal_name\"
+        , count( * ) as \"count\"
+        FROM
+        $stagingTablePrefix"."_branch mbb_inside WHERE
+        lower(mbb_inside.institution) like '%library%'
+        group by 1
+        having count( * ) > 1
          ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
@@ -765,12 +776,12 @@ sub createDatabase
         $query = "
         CREATE VIEW $stagingTablePrefix"."_same_branch_normal_name_expanded
         AS
-       SELECT mbb.id,mbb.institution_normal \"dname\",mbb.institution
-            FROM
-            $stagingTablePrefix"."_branch mbb,
-            $stagingTablePrefix"."_same_branch_normal_name AS normals
-                WHERE
-                mbb.institution_normal = normals.normal_name
+        SELECT mbb.id,mbb.institution_normal \"dname\",mbb.institution
+        FROM
+        $stagingTablePrefix"."_branch mbb,
+        $stagingTablePrefix"."_same_branch_normal_name AS normals
+        WHERE
+        mbb.institution_normal = normals.normal_name
          ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
@@ -779,26 +790,46 @@ sub createDatabase
         CREATE VIEW $stagingTablePrefix"."_branch_name_dedupe
         AS
         SELECT DISTINCT
-            thebottom.institution \"variation\", thetop.institution \"normalized\"
-            FROM
-            $stagingTablePrefix"."_same_branch_normal_name_expanded AS thetop,
-            $stagingTablePrefix"."_same_branch_normal_name_expanded AS thebottom
-            WHERE
-            thetop.dname=thebottom.dname AND
-            thebottom.id!=thetop.id AND
-            length(thetop.institution) > length(thebottom.institution)
+        thebottom.institution \"variation\", thetop.institution \"normalized\"
+        FROM
+        $stagingTablePrefix"."_same_branch_normal_name_expanded AS thetop,
+        $stagingTablePrefix"."_same_branch_normal_name_expanded AS thebottom
+        WHERE
+        thetop.dname=thebottom.dname AND
+        thebottom.id!=thetop.id AND
+        length(thetop.institution) > length(thebottom.institution)
 
-            UNION ALL
+        UNION ALL
 
-            SELECT
-            thetop.institution \"variation\", thebottom.institution \"normalized\"
-            FROM
-            $stagingTablePrefix"."_same_branch_normal_name_expanded AS thetop,
-            $stagingTablePrefix"."_same_branch_normal_name_expanded AS thebottom
-            WHERE
-            thetop.dname=thebottom.dname AND
-            thebottom.id!=thetop.id AND
-            length(thetop.institution) < length(thebottom.institution)
+        SELECT
+        thetop.institution \"variation\", thebottom.institution \"normalized\"
+        FROM
+        $stagingTablePrefix"."_same_branch_normal_name_expanded AS thetop,
+        $stagingTablePrefix"."_same_branch_normal_name_expanded AS thebottom
+        WHERE
+        thetop.dname=thebottom.dname AND
+        thebottom.id!=thetop.id AND
+        length(thetop.institution) < length(thebottom.institution)
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
+        $query = "
+        CREATE VIEW $stagingTablePrefix"."_agency_owning_cluster
+        AS
+        SELECT DISTINCT 
+        branch.shortname as \"shortname\",
+        branch_cluster.cid as\"cid\",
+        branch_cluster.cname as \"cname\"
+        FROM
+        $stagingTablePrefix"."_branch branch,
+        $stagingTablePrefix"."_branch_shortname_agency_translate sixcodes,
+        $stagingTablePrefix"."_branch_name_final final_branch,
+        $stagingTablePrefix"."_branch_cluster branch_cluster
+        WHERE
+        branch.final_branch=final_branch.id and
+        final_branch.id=branch_cluster.fid and
+        sixcodes.shortname=branch.shortname
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);

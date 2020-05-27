@@ -185,9 +185,8 @@
 '9rgsp','Regis University'
 '9sgcl','Springfield-Greene County Library'
 '9uccp','University of Colorado-Colorado Springs'
-'9uncp','University of Borthern Colorado'
+'9uncp','University of Northern Colorado'
 '9uwyp','University of Wyoming'
-6cluv
 
 
 [manual_branch_to_cluster]
@@ -222,6 +221,30 @@
 'Saint Louis University','SLU'
 'SLU','SLU'
 'MOBIUS Swan Cluster','SWAN'
+'Arapahoe Library District','Prospector Libraries'
+'Aurora Public Library','Prospector Libraries'
+'Auraria Library','Prospector Libraries'
+'Boulder Public Library','Prospector Libraries'
+'University of Colorado-Boulder','Prospector Libraries'
+'Denver Public Library','Prospector Libraries'
+'Poudre River Library','Prospector Libraries'
+'Fort Lewis College','Prospector Libraries'
+'Jefferson County Public Library','Prospector Libraries'
+'Lafayette Public Library','Prospector Libraries'
+'Longmont Public Library','Prospector Libraries'
+'Loveland Public Library','Prospector Libraries'
+'Louisville Public Library','Prospector Libraries'
+'Colorado Christian University','Prospector Libraries'
+'Colorado Mountain College','Prospector Libraries'
+'Maime Doud Library','Prospector Libraries'
+'Colorado Mesa University','Prospector Libraries'
+'Regis University','Prospector Libraries'
+'University of Colorado-Colorado Springs','Prospector Libraries'
+'University of Northern Colorado','Prospector Libraries'
+'University of Wyoming','Prospector Libraries'
+'University of Colorado-Law','Prospector Libraries'
+'Adams State University','Prospector Libraries'
+
 
 [normalize_branch_name]
 'SWAN','MOBIUS Swan Cluster'
@@ -231,7 +254,7 @@
 'Archway Cluster','MOBIUS Archway Cluster'
 'Archway','MOBIUS Archway Cluster'
 'Arthur','MOBIUS Arthur Cluster'
-'CU Boulder','University of Colorado'
+'CU Boulder','University of Colorado-Boulder'
 'Kenrick-Glennon Seminary','Kenrick-Glennon Theological Seminary'
 'A.T. Still University-Arizona','A.T. Still University'
 'Adams State Univ.','Adams State University'
