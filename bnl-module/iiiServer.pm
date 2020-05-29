@@ -416,7 +416,7 @@ sub cleanDuplicates
     
     ## Delete 6/9 -> 6/9
     my $query = "
-    DELETE bnl    
+    DELETE bnl
     FROM
     $self->{prefix}"."_bnl bnl,
     $self->{prefix}"."_branch owning_branch,
@@ -465,6 +465,72 @@ sub cleanDuplicates
     ";
     doUpdateQuery($self,$query,"DELETE 6/9 onto itself (owning) $self->{prefix}"."_bnl",\@vals);
 
+     ## Delete innreach entries that are already accounted for in the sierra entries
+    $query = "
+    DELETE bnl
+    FROM
+    $self->{prefix}"."_bnl bnl,
+    (
+        select * from
+        (
+            select 
+            owning_final_branch.id AS \"sierra_owning_id\",
+            borrowing_final_branch.id \"sierra_borrowing_id\",
+            owning_final_branch.name \"sierra_owning_name\",
+            borrowing_final_branch.name \"sierra_borrowing_name\",
+            bnl_sierra.borrow_date as \"sierra_borrow_date\",
+            sum(bnl_sierra.quantity) AS \"sierra_quantity\"
+            from
+            $self->{prefix}"."_bnl bnl_sierra,
+            $self->{prefix}"."_branch owning_branch,
+            $self->{prefix}"."_branch borrowing_branch,
+            $self->{prefix}"."_cluster cluster,
+            $self->{prefix}"."_branch_name_final owning_final_branch,
+            $self->{prefix}"."_branch_name_final borrowing_final_branch
+            where
+            bnl_sierra.owning_branch=owning_branch.id and
+            bnl_sierra.borrowing_branch=borrowing_branch.id and
+            owning_branch.final_branch=owning_final_branch.id and
+            borrowing_branch.final_branch=borrowing_final_branch.id and
+            cluster.id=bnl_sierra.owning_cluster AND
+            cluster.type='sierra'
+            group by 1,2,3,4,5
+        ) AS sierra,
+        (
+            SELECT 
+            bnl_innreach.id AS \"bnl_innreach_id\",
+            owning_final_branch.id AS \"innreach_owning_id\",
+            borrowing_final_branch.id \"innreach_borrowing_id\",
+            owning_final_branch.name \"innreach_owning_name\",
+            borrowing_final_branch.name \"innreach_borrowing_name\",
+            cluster.name \"cluster_name\",
+            bnl_innreach.borrow_date as \"innreach_borrow_date\",
+            bnl_innreach.quantity as \"innreach_quantity\"
+            FROM
+            $self->{prefix}"."_bnl bnl_innreach,
+            $self->{prefix}"."_branch owning_branch,
+            $self->{prefix}"."_branch borrowing_branch,
+            $self->{prefix}"."_cluster cluster,
+            $self->{prefix}"."_branch_name_final owning_final_branch,
+            $self->{prefix}"."_branch_name_final borrowing_final_branch
+            WHERE
+            bnl_innreach.owning_branch=owning_branch.id and
+            bnl_innreach.borrowing_branch=borrowing_branch.id and
+            owning_branch.final_branch=owning_final_branch.id and
+            borrowing_branch.final_branch=borrowing_final_branch.id and
+            cluster.id=bnl_innreach.owning_cluster and
+            cluster.type='innreach'
+        ) AS innreach
+        WHERE
+        innreach.innreach_borrow_date=sierra.sierra_borrow_date AND
+        innreach.innreach_owning_id=sierra.sierra_owning_id and
+        innreach.innreach_borrowing_id=sierra.sierra_borrowing_id
+        order by 3,4
+    ) AS alll
+    WHERE
+    bnl.id=alll.bnl_innreach_id";
+    doUpdateQuery($self,$query,"DELETE INNREACH BNL duplicated in sierra report data $self->{prefix}"."_bnl",\@vals);
+
     ## Delete innreach duplicates
     $query = "
     DELETE bnl FROM
@@ -486,7 +552,7 @@ sub cleanDuplicates
     sierra.borrowing_id=innreach.borrowing_id AND
     sierra.borrow_date=innreach.borrow_date AND
     sierra.quantity=innreach.quantity
-        ) as alll
+        ) AS alll
     WHERE
     bnl.owning_branch = owning_branch.id and
     bnl.borrowing_branch = borrowing_branch.id AND
@@ -501,76 +567,76 @@ sub cleanDuplicates
     ";
     doUpdateQuery($self,$query,"DELETE duplicate INNREACH $self->{prefix}"."_bnl",\@vals);
 
-    ## Delete sierra->sierra duplicates (because of agency)
-    $query = "
-    DELETE bnl1
-    from
-    $self->{prefix}"."_bnl bnl1,
-    $self->{prefix}"."_bnl bnl2,
-    $self->{prefix}"."_branch owning_branch1,
-    $self->{prefix}"."_branch borrowing_branch1,
-    $self->{prefix}"."_branch owning_branch2,
-    $self->{prefix}"."_branch borrowing_branch2,
-    $self->{prefix}"."_bnl_final_branch_map as group1,
-    $self->{prefix}"."_bnl_final_branch_map as group2
-    WHERE
-    group1.cluster_type = 'sierra' and
-    group2.cluster_type = 'sierra' and
-    group1.owning_id=group2.owning_id and
-    group1.borrowing_id=group2.borrowing_id AND
-    group1.borrow_date=group2.borrow_date AND
-    group1.quantity=group2.quantity AND
-    bnl1.owning_branch = owning_branch1.id and
-    bnl1.borrowing_branch = borrowing_branch1.id and
-    bnl2.owning_branch = owning_branch2.id and
-    bnl2.borrowing_branch = borrowing_branch2.id and
-    bnl1.owning_branch != bnl2.owning_branch AND
-    owning_branch1.final_branch = group1.owning_id and
-    borrowing_branch1.final_branch = group1.borrowing_id and
-    owning_branch2.final_branch = group2.owning_id and
-    borrowing_branch2.final_branch = group2.borrowing_id and
-    bnl1.borrow_date = bnl2.borrow_date AND
-    bnl1.quantity = bnl2.quantity AND
-    bnl1.owning_cluster != bnl2.owning_cluster AND
-    owning_branch1.shortname in(select shortname from $self->{prefix}"."_branch_shortname_agency_translate)
-    ";
-    doUpdateQuery($self,$query,"DELETE duplicate sierra1->sierra2 duplicates (because of agency) $self->{prefix}"."_bnl",\@vals);
+    # ## Delete sierra->sierra duplicates (because of agency)
+    # $query = "
+    # DELETE bnl1
+    # from
+    # $self->{prefix}"."_bnl bnl1,
+    # $self->{prefix}"."_bnl bnl2,
+    # $self->{prefix}"."_branch owning_branch1,
+    # $self->{prefix}"."_branch borrowing_branch1,
+    # $self->{prefix}"."_branch owning_branch2,
+    # $self->{prefix}"."_branch borrowing_branch2,
+    # $self->{prefix}"."_bnl_final_branch_map AS group1,
+    # $self->{prefix}"."_bnl_final_branch_map AS group2
+    # WHERE
+    # group1.cluster_type = 'sierra' and
+    # group2.cluster_type = 'sierra' and
+    # group1.owning_id=group2.owning_id and
+    # group1.borrowing_id=group2.borrowing_id AND
+    # group1.borrow_date=group2.borrow_date AND
+    # group1.quantity=group2.quantity AND
+    # bnl1.owning_branch = owning_branch1.id and
+    # bnl1.borrowing_branch = borrowing_branch1.id and
+    # bnl2.owning_branch = owning_branch2.id and
+    # bnl2.borrowing_branch = borrowing_branch2.id and
+    # bnl1.owning_branch != bnl2.owning_branch AND
+    # owning_branch1.final_branch = group1.owning_id and
+    # borrowing_branch1.final_branch = group1.borrowing_id and
+    # owning_branch2.final_branch = group2.owning_id and
+    # borrowing_branch2.final_branch = group2.borrowing_id and
+    # bnl1.borrow_date = bnl2.borrow_date AND
+    # bnl1.quantity = bnl2.quantity AND
+    # bnl1.owning_cluster != bnl2.owning_cluster AND
+    # owning_branch1.shortname in(select shortname from $self->{prefix}"."_branch_shortname_agency_translate)
+    # ";
+    # doUpdateQuery($self,$query,"DELETE duplicate sierra1->sierra2 duplicates (because of agency) $self->{prefix}"."_bnl",\@vals);
 
-    ## Delete sierra->sierra duplicates (because of agency)
-    $query = "
-    DELETE bnl2
-    from
-    $self->{prefix}"."_bnl bnl1,
-    $self->{prefix}"."_bnl bnl2,
-    $self->{prefix}"."_branch owning_branch1,
-    $self->{prefix}"."_branch borrowing_branch1,
-    $self->{prefix}"."_branch owning_branch2,
-    $self->{prefix}"."_branch borrowing_branch2,
-    $self->{prefix}"."_bnl_final_branch_map as group1,
-    $self->{prefix}"."_bnl_final_branch_map as group2
-    WHERE
-    group1.cluster_type = 'sierra' and
-    group2.cluster_type = 'sierra' and
-    group1.owning_id=group2.owning_id and
-    group1.borrowing_id=group2.borrowing_id AND
-    group1.borrow_date=group2.borrow_date AND
-    group1.quantity=group2.quantity AND
-    bnl1.owning_branch = owning_branch1.id and
-    bnl1.borrowing_branch = borrowing_branch1.id and
-    bnl2.owning_branch = owning_branch2.id and
-    bnl2.borrowing_branch = borrowing_branch2.id and
-    bnl1.owning_branch != bnl2.owning_branch AND
-    owning_branch1.final_branch = group1.owning_id and
-    borrowing_branch1.final_branch = group1.borrowing_id and
-    owning_branch2.final_branch = group2.owning_id and
-    borrowing_branch2.final_branch = group2.borrowing_id and
-    bnl1.borrow_date = bnl2.borrow_date AND
-    bnl1.quantity = bnl2.quantity AND
-    bnl1.owning_cluster != bnl2.owning_cluster AND
-    owning_branch2.shortname in(select shortname from $self->{prefix}"."_branch_shortname_agency_translate)
+    # ## Delete sierra->sierra duplicates (because of agency)
+    # $query = "
+    # DELETE bnl2
+    # from
+    # $self->{prefix}"."_bnl bnl1,
+    # $self->{prefix}"."_bnl bnl2,
+    # $self->{prefix}"."_branch owning_branch1,
+    # $self->{prefix}"."_branch borrowing_branch1,
+    # $self->{prefix}"."_branch owning_branch2,
+    # $self->{prefix}"."_branch borrowing_branch2,
+    # $self->{prefix}"."_bnl_final_branch_map AS group1,
+    # $self->{prefix}"."_bnl_final_branch_map AS group2
+    # WHERE
+    # group1.cluster_type = 'sierra' and
+    # group2.cluster_type = 'sierra' and
+    # group1.owning_id=group2.owning_id and
+    # group1.borrowing_id=group2.borrowing_id AND
+    # group1.borrow_date=group2.borrow_date AND
+    # group1.quantity=group2.quantity AND
+    # bnl1.owning_branch = owning_branch1.id and
+    # bnl1.borrowing_branch = borrowing_branch1.id and
+    # bnl2.owning_branch = owning_branch2.id and
+    # bnl2.borrowing_branch = borrowing_branch2.id and
+    # bnl1.owning_branch != bnl2.owning_branch AND
+    # owning_branch1.final_branch = group1.owning_id and
+    # borrowing_branch1.final_branch = group1.borrowing_id and
+    # owning_branch2.final_branch = group2.owning_id and
+    # borrowing_branch2.final_branch = group2.borrowing_id and
+    # bnl1.borrow_date = bnl2.borrow_date AND
+    # bnl1.quantity = bnl2.quantity AND
+    # bnl1.owning_cluster != bnl2.owning_cluster AND
+    # owning_branch2.shortname in(select shortname from $self->{prefix}"."_branch_shortname_agency_translate)
 
-    ";
-    doUpdateQuery($self,$query,"DELETE duplicate sierra2->sierra1 duplicates (because of agency) $self->{prefix}"."_bnl",\@vals);
+    # ";
+    # doUpdateQuery($self,$query,"DELETE duplicate sierra2->sierra1 duplicates (because of agency) $self->{prefix}"."_bnl",\@vals);
 
 }
 

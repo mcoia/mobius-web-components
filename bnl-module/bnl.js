@@ -34,8 +34,12 @@ jQuery(document).ready(function()
                 {
                     jQuery("#bnl_submit_button").removeClass('bnl_submit_not_allowed');
                     jQuery('#bnl_submit_button').click(function(){
-                    bnl_generate_data('#bnl_branch_div', '#bnl_cluster_div', '#bnl_owning_summary_div', '#bnl_borrowing_summary_div' ,dropdown_vals);
-                });
+                        bnl_generate_data('#bnl_branch_div', '#bnl_cluster_div', '#bnl_owning_summary_div', '#bnl_borrowing_summary_div' ,dropdown_vals);
+                    });
+                }
+                else
+                {
+                    jQuery('#bnl_submit_button').unbind("click");
                 }
             }
         }
@@ -63,12 +67,12 @@ jQuery(document).ready(function()
             document.cookie = finalc;
         }
 
-
         function bnl_get_seed_data(bnl_panel_dom, dropdown_vals)
         {
             var saveHTML = jQuery(bnl_panel_dom).html();
             jQuery(bnl_panel_dom).html(' ');
             jQuery(bnl_panel_dom).addClass('loader');
+            // Figure out all of the branches/clusters in the database
             jQuery.get("borrowing_n_lending_get?get_branches=1", function(ob)
             {
                 branch_obj = ob;
@@ -76,6 +80,14 @@ jQuery(document).ready(function()
             {
                 jQuery(bnl_panel_dom).removeClass('loader');
                 jQuery(bnl_panel_dom).html(saveHTML);
+                
+                // fill in the date ranges available in the data
+                jQuery.get("borrowing_n_lending_get?get_data_date_range=1", function(data)
+                {
+                    jQuery("#data_date_start").html(data['date_start']);
+                    jQuery("#data_date_end").html(data['date_end']);
+                });
+
                 var tarray = ['owning','borrowing'];
                 if(branch_obj['branch'] && branch_obj['branch_order'])
                 {
@@ -89,7 +101,11 @@ jQuery(document).ready(function()
                         }
                         selectHTML += '</select>';
                         jQuery(dropdown_vals['branch']['dom']+"_"+type).html(selectHTML);
-                        jQuery('#'+type+'_'+dropdown_vals['branch']['chooser']).chosen();
+                        jQuery('#'+type+'_'+dropdown_vals['branch']['chooser']).chosen().change(
+                        function(data)
+                        {
+                            disable_other_dropdowns(data.currentTarget.id,dropdown_vals);
+                        });
                     }
                 }
                 if(branch_obj['cluster'])
@@ -114,13 +130,23 @@ jQuery(document).ready(function()
                         selectHTML_system += '</select>';
                         jQuery(dropdown_vals['cluster']['dom']+"_"+type).html(selectHTML_cluster);
                         jQuery(dropdown_vals['system']['dom']+"_"+type).html(selectHTML_system);
-                        jQuery('#'+type+'_'+dropdown_vals['cluster']['chooser']).chosen();
-                        jQuery('#'+type+'_'+dropdown_vals['system']['chooser']).chosen();
+                        jQuery('#'+type+'_'+dropdown_vals['cluster']['chooser']).chosen().change(
+                        function(data)
+                        {
+                            disable_other_dropdowns(data.currentTarget.id,dropdown_vals);
+                        });
+                        jQuery('#'+type+'_'+dropdown_vals['system']['chooser']).chosen().change(
+                        function(data)
+                        {
+                            disable_other_dropdowns(data.currentTarget.id,dropdown_vals);
+                        });
                     }
                 }
                 bnl_init_date();
                 checkGetable();
             });
+            jQuery("#firsttimebutton").click(function(){ bnl_firsttimeinstructions();});
+            jQuery("#instructions_show_hide_a").click(function(){ bnl_show_hide();});
         }
 
         function bnl_generate_data(branch_dom, cluster_dom, owning_dom, borrowing_dom, dropdown_vals)
@@ -278,7 +304,7 @@ jQuery(document).ready(function()
                 console.log("Finished loading branch_table");
                 jQuery(branch_dom).removeClass('loader');
                 jQuery(branch_dom).html(
-                    "<h1>Branch to Branch</h1>"+
+                    "<h1>Library to Library</h1>"+
                     bnl_create_csv_download_link("Branch to Branch","bnl_branch_table")+
                     branch_table_html
                 );
@@ -488,6 +514,61 @@ jQuery(document).ready(function()
                 paging: true,
                 lengthMenu: [ 25, 50, 100, 1000 ]
             } );
+        }
+        
+        function disable_other_dropdowns(dom, dropdown_vals)
+        {
+            var empty = 1;
+            dom = "#" + dom;
+            var type = dom.match(/^([^_]*)_(.*)/);
+            if(!type[1])
+            {
+                return;
+            }
+            type = type[1];
+            jQuery(dom + " option:selected").each(function(){
+                empty = 0;
+            });
+            
+            for(var drop_type in dropdown_vals)
+            {
+                var tdom = type+"_"+dropdown_vals[drop_type]['chooser'];
+                if(empty)
+                {
+                    jQuery(tdom + "_chosen > input").prop("disabled","false");
+                    jQuery(tdom + "_chosen > ul").css("display","");
+                    jQuery(tdom + "_chosen").css("background-color","");
+                    jQuery(tdom + "_chosen").css("height","");
+                }
+                else
+                {
+                    if(tdom != dom)
+                    {
+                        jQuery(tdom + "_chosen > input").prop("disabled","true");
+                        jQuery(tdom + "_chosen > ul").css("display","none");
+                        jQuery(tdom + "_chosen").css("background-color","grey");
+                        jQuery(tdom + "_chosen").css("height","20px");
+                    }
+                }
+            }
+        }
+        
+        function bnl_firsttimeinstructions()        
+        {
+            jQuery(".bnl_instructions").css("display","");
+            jQuery(".bnl_instructions").show();
+        }
+        
+        function bnl_show_hide()
+        {
+            if(jQuery(".bnl_instructions").css("display") == 'none')
+            {
+                jQuery(".bnl_instructions").show();
+            }
+            else
+            {
+                jQuery(".bnl_instructions").hide();
+            }
         }
 
     }

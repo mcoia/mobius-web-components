@@ -236,7 +236,7 @@ sub createDatabase
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_name_dedupe ";
         $log->addLine($query);
         $dbHandler->update($query);
-        my $query = "DROP VIEW $stagingTablePrefix"."_same_branch_normal_name_expanded ";
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_same_branch_normal_name_expanded ";
         $log->addLine($query);
         $dbHandler->update($query);
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_same_branch_normal_name ";
@@ -328,6 +328,7 @@ sub createDatabase
         postgres_port varchar(100),
         postgres_username varchar(100),
         postgres_password varchar(100),
+        parent_cluster int REFERENCES $stagingTablePrefix"."_cluster(id),
         PRIMARY KEY (id),
         INDEX (name)
         )
@@ -689,35 +690,16 @@ sub createDatabase
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_system
         AS
-        -- Every branch that has a cluster assigned IS considered a MOBIUS branch,
-        -- and because we insert the MOBIUS system innreach entry in the cluster table first, we know
-        -- we can bubble up the MOBIUS cluster by getting the min(id)
-        select DISTINCT 
-        final_branch.id \"fid\",min(cluster_innreach.id) \"cid\"
+        -- Mapping branches to the parent_cluster
+        SELECT 
+        final_branch.id \"fid\",cluster.parent_cluster \"cid\"
         FROM
-        $stagingTablePrefix"."_branch_cluster branch_cluster,
-        $stagingTablePrefix"."_branch_name_final final_branch,
-        $stagingTablePrefix"."_cluster cluster_innreach
+        mobius_bnl_branch_cluster branch_cluster,
+        mobius_bnl_branch_name_final final_branch,
+        mobius_bnl_cluster cluster
         WHERE
         branch_cluster.fid = final_branch.id AND
-        lower(cluster_innreach.type) = 'innreach'
-        group by 1
-
-        UNION ALL
-
-        -- The rest of the branches are not MOBIUS - which, right now, is only Prospector
-        -- So we will get the max(id)
-        -- TODO - figure out a way to handle the case when there are more than 2 innreach systems in the data
-        select DISTINCT 
-        final_branch.id \"fid\",max(cluster_innreach.id) \"cid\"
-        FROM
-        $stagingTablePrefix"."_branch_name_final final_branch
-        LEFT JOIN  $stagingTablePrefix"."_branch_cluster branch_cluster on (branch_cluster.fid = final_branch.id),
-        $stagingTablePrefix"."_cluster cluster_innreach
-        WHERE
-        branch_cluster.fid IS NULL AND
-        lower(cluster_innreach.type) = 'innreach'
-        group by 1
+        branch_cluster.cid = cluster.id
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
@@ -930,6 +912,37 @@ sub createDatabase
         # $dbHandler->update($query);
 
         seedDB($dbSeed) if $dbSeed;
+
+        ## Hard coding the cluster parents (sorry)
+        $query = 
+        "UPDATE 
+        $stagingTablePrefix"."_cluster maincluster,
+        $stagingTablePrefix"."_cluster mobiuscluster
+        SET
+        maincluster.parent_cluster = mobiuscluster.id
+        where
+        mobiuscluster.type='innreach' and
+        mobiuscluster.name='MOBIUS' and
+        maincluster.type='sierra' and
+        lower(maincluster.name) not like '%prospect%'
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = 
+        "UPDATE 
+        $stagingTablePrefix"."_cluster maincluster,
+        $stagingTablePrefix"."_cluster mobiuscluster
+        SET
+        maincluster.parent_cluster = mobiuscluster.id
+        where
+        mobiuscluster.type='innreach' and
+        mobiuscluster.name='Prospector' and
+        maincluster.type='sierra' and
+        lower(maincluster.name) like '%prospect%'
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
     }
     else
     {
@@ -1049,12 +1062,14 @@ sub figureColumnsFromTable
 {
     my $table = shift;
     my @ret = ();
+    ## hard coding the removal of the parent_cluster column - a recursive column onto itself. Seed data can't deal with that
     my $query = "
         SELECT COLUMN_NAME 
         FROM 
         INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA='$databaseName'
-        AND TABLE_NAME='$stagingTablePrefix".'_'."$table'";
+        AND TABLE_NAME='$stagingTablePrefix".'_'."$table'
+        AND lower(COLUMN_NAME)!='parent_cluster'";
     $log->addLine($query) if $debug;
     my @results = @{$dbHandler->query($query)};
     foreach(@results)
