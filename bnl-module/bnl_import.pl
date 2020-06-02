@@ -37,6 +37,8 @@ our $recreateDB = 0;
 our $dbSeed,
 our $blindDate = 0;
 our $monthsBack = 1;
+our $specificMonth;
+our $specificCluster;
 
 
 GetOptions (
@@ -46,7 +48,9 @@ GetOptions (
 "recreateDB" => \$recreateDB,
 "dbSeed=s" => \$dbSeed,
 "blindDate" => \$blindDate,
-"monthsBack=s" => \$monthsBack
+"monthsBack=s" => \$monthsBack,
+"specificMonth=s" => \$specificMonth,
+"specificCluster=s" => \$specificCluster,
 )
 or die("Error in command line arguments\nYou can specify
 --log path_to_log_output.log                  [Path to the log output file - required]
@@ -56,6 +60,9 @@ or die("Error in command line arguments\nYou can specify
 --dbSeed                                      [DB Seed file - populating the base data]
 --blindDate                                   [Should the software re-generate previously generated datasets]
 --monthsBack                                  [How far back should we gather data Integer in months. Default is 1]
+--specificMonth                               [Allow user input a specific month. Format is: YYYY-DD-01]
+--specificCluster                             [Allow user input a specific cluster. eg: bridges]
+
 \n");
 
 
@@ -99,26 +106,67 @@ if(@all[1])
     my %clusters = %{@all[0]};
     mkdir $cwd unless -d $cwd;
 
-    print "Months Back $monthsBack\n";
+    print "Specific Cluster: $specificCluster\n" if $specificCluster;
+    print "Months Back $monthsBack\n" if $monthsBack && !$specificMonth;
+    print "Specific Month: $specificMonth\n" if $specificMonth;
     foreach(@order)
     {
         print "Processing: $_\n";
         my $cluster;
         if($clusters{$_} =~ m/sierra/)  ## Right now, there are two typs: sierra and innreach
         {
-            $cluster = new sierraCluster($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug);
+            $cluster = new sierraCluster($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug,$specificMonth);
         }
         else
         {
-            $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug);
+            $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug,$specificMonth);
         }
         $cluster->scrape();
+        my @missingMonths = @{dataExists($_, $cluster)};
+        ## Go again if it didn't work. This is usually due to a headless browser load issue.
+        foreach(@missingMonths)
+        {
+            print "Repeating $_\n";
+            $cluster->setSpecificDate($_);
+            $cluster->scrape();
+        }
     }
 }   
 
 undef $writePid;
 closeBrowser();
 $log->addLogLine("****************** Ending ******************");
+
+sub dataExists
+{
+    print "Double Checking that the data made it into the database\n" if $debug;
+    my $clusterName = shift;
+    my $cluster = shift;
+    my @dateScrapes = @{$cluster->figureWhichDates()};
+    my @ret = ();
+    if(@dateScrapes[1])
+    {
+        my @dbvals = @{@dateScrapes[1]};
+        foreach(@dbvals)
+        {
+            my $query = "
+                SELECT
+                bnl.id
+                FROM
+                $stagingTablePrefix"."_bnl bnl,
+                $stagingTablePrefix"."_cluster cluster
+                WHERE
+                bnl.owning_branch = cluster.id AND
+                cluster.name = '$clusterName' AND
+                bnl.borrow_date = '$_'
+                ";
+            $log->addLogLine($query) if $debug;
+            my @results = @{$dbHandler->query($query)};
+            push(@ret, $_) if(!@results[0]);  #At least one result
+        }
+    }
+    return \@ret;
+}
 
 sub getClusters
 {
@@ -132,24 +180,16 @@ sub getClusters
     $stagingTablePrefix"."_cluster
     where
     scrape_data is true
-    -- and name = 'Archway'
+    ___specific___
+    -- and id not in(1,2,3,4,5,6,7,8,23)
     order by 2 desc,1
-    -- limit 10 offset 3
     ";
-    # where type='innreach' and name='prospector'
-    # and
-    # (
-    # (
-    # type='innreach'
-    # and name='Prospector'
-    # )
-    # or
-    # (
-    # type='sierra'
-    # and name='Archway'
-    # )
-    # )
-    # -- and type='sierra' and name='merlin'
+
+    # defang
+    undef $specificCluster if($specificCluster =~ m/[&'%\\\/]/);
+
+    $query =~ s/___specific___/AND LOWER(name) = '$specificCluster'/g if $specificCluster;
+    $query =~ s/___specific___//g if !$specificCluster;
     $log->addLogLine($query);
     my @results = @{$dbHandler->query($query)};
     foreach(@results)
@@ -470,6 +510,7 @@ sub createDatabase
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_bnl_final_branch_map
         AS
         SELECT
+        bnl.id \"bnl_id\",
         owning_cluster.type \"cluster_type\",
         owning_branch_final.id \"owning_id\",
         borrowing_branch_final.id \"borrowing_id\",

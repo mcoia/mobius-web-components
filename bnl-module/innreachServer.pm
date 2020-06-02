@@ -32,7 +32,7 @@ sub scrape
             $pos++;
             $continue = handleLandingPage($self);
         }
-        $self->SUPER::cleanDuplicates();
+        $self->SUPER::cleanDuplicates(\@dbvals);
     }
 }
 

@@ -33,7 +33,8 @@ sub new
         pgPass => '',
         clusterID => -1,
         error => 0,
-        postgresConnector => undef
+        postgresConnector => undef,
+        specificMonth => shift
     };
     if($self->{name} && $self->{dbHandler} && $self->{prefix} && $self->{driver} && $self->{log})
     {
@@ -48,6 +49,20 @@ sub new
     $screenShotStep = 0;
     bless $self, $class;
     return $self;
+}
+
+sub setSpecificDate
+{
+    my ($self) = shift;
+    my $dbDate = shift;
+    if($dbDate =~ m/\d{4}\-\d{1,2}\-\d{1,2}/)
+    {
+        $self->{specificMonth} = $dbDate;
+    }
+    else
+    {
+        $self->{specificMonth} = undef;
+    }
 }
 
 sub collectReportData
@@ -411,6 +426,9 @@ sub normalizeNames
 sub cleanDuplicates
 {
     my ($self) = shift;
+    my $dates = shift;
+    my @dates = @{$dates} if $dates;
+    
     my @vals = ();
 
     
@@ -465,181 +483,119 @@ sub cleanDuplicates
     ";
     doUpdateQuery($self,$query,"DELETE 6/9 onto itself (owning) $self->{prefix}"."_bnl",\@vals);
 
-     ## Delete innreach entries that are already accounted for in the sierra entries
-    $query = "
-    DELETE bnl
-    FROM
-    $self->{prefix}"."_bnl bnl,
-    (
-        select * from
-        (
-            select 
-            owning_final_branch.id AS \"sierra_owning_id\",
-            borrowing_final_branch.id \"sierra_borrowing_id\",
-            owning_final_branch.name \"sierra_owning_name\",
-            borrowing_final_branch.name \"sierra_borrowing_name\",
-            bnl_sierra.borrow_date as \"sierra_borrow_date\",
-            sum(bnl_sierra.quantity) AS \"sierra_quantity\"
-            from
-            $self->{prefix}"."_bnl bnl_sierra,
-            $self->{prefix}"."_branch owning_branch,
-            $self->{prefix}"."_branch borrowing_branch,
-            $self->{prefix}"."_cluster cluster,
-            $self->{prefix}"."_branch_name_final owning_final_branch,
-            $self->{prefix}"."_branch_name_final borrowing_final_branch
-            where
-            bnl_sierra.owning_branch=owning_branch.id and
-            bnl_sierra.borrowing_branch=borrowing_branch.id and
-            owning_branch.final_branch=owning_final_branch.id and
-            borrowing_branch.final_branch=borrowing_final_branch.id and
-            cluster.id=bnl_sierra.owning_cluster AND
-            cluster.type='sierra'
-            group by 1,2,3,4,5
-        ) AS sierra,
-        (
-            SELECT 
-            bnl_innreach.id AS \"bnl_innreach_id\",
-            owning_final_branch.id AS \"innreach_owning_id\",
-            borrowing_final_branch.id \"innreach_borrowing_id\",
-            owning_final_branch.name \"innreach_owning_name\",
-            borrowing_final_branch.name \"innreach_borrowing_name\",
-            cluster.name \"cluster_name\",
-            bnl_innreach.borrow_date as \"innreach_borrow_date\",
-            bnl_innreach.quantity as \"innreach_quantity\"
-            FROM
-            $self->{prefix}"."_bnl bnl_innreach,
-            $self->{prefix}"."_branch owning_branch,
-            $self->{prefix}"."_branch borrowing_branch,
-            $self->{prefix}"."_cluster cluster,
-            $self->{prefix}"."_branch_name_final owning_final_branch,
-            $self->{prefix}"."_branch_name_final borrowing_final_branch
-            WHERE
-            bnl_innreach.owning_branch=owning_branch.id and
-            bnl_innreach.borrowing_branch=borrowing_branch.id and
-            owning_branch.final_branch=owning_final_branch.id and
-            borrowing_branch.final_branch=borrowing_final_branch.id and
-            cluster.id=bnl_innreach.owning_cluster and
-            cluster.type='innreach'
-        ) AS innreach
-        WHERE
-        innreach.innreach_borrow_date=sierra.sierra_borrow_date AND
-        innreach.innreach_owning_id=sierra.sierra_owning_id and
-        innreach.innreach_borrowing_id=sierra.sierra_borrowing_id
-        order by 3,4
-    ) AS alll
-    WHERE
-    bnl.id=alll.bnl_innreach_id";
-    doUpdateQuery($self,$query,"DELETE INNREACH BNL duplicated in sierra report data $self->{prefix}"."_bnl",\@vals);
-
-    ## Delete innreach duplicates
-    $query = "
+     ## Delete entries that are already accounted for in the sierra entries
+     my $queryTemplate = "
     DELETE bnl FROM
-    $self->{prefix}"."_bnl bnl,
-    $self->{prefix}"."_branch owning_branch,
-    $self->{prefix}"."_branch borrowing_branch,
-    $self->{prefix}"."_cluster owning_cluster,
-    $self->{prefix}"."_cluster borrowing_cluster,
-    (
-    select
-    sierra.owning_id,sierra.borrowing_id,sierra.borrow_date,sierra.quantity
-    from
-    $self->{prefix}"."_bnl_final_branch_map sierra,
-    $self->{prefix}"."_bnl_final_branch_map innreach
-    where
-    sierra.cluster_type = 'sierra' and
-    innreach.cluster_type = 'innreach' and
-    sierra.owning_id=innreach.owning_id and
-    sierra.borrowing_id=innreach.borrowing_id AND
-    sierra.borrow_date=innreach.borrow_date AND
-    sierra.quantity=innreach.quantity
-        ) AS alll
+        $self->{prefix}"."_bnl bnl,
+        (
+            select DISTINCT * from
+                (
+                    select 
+                    bnl_cluster1.id AS \"bnl_cluster1_id\",
+                    owning_final_branch.id AS \"cluster1_owning_id\",
+                    borrowing_final_branch.id \"cluster1_borrowing_id\",
+                    owning_final_branch.name \"cluster1_owning_name\",
+                    borrowing_final_branch.name \"cluster1_borrowing_name\",
+                    cluster.name \"cluster1_cluster_name\",
+                    bnl_cluster1.borrow_date as \"cluster1_borrow_date\",
+                    bnl_cluster1.quantity AS \"cluster1_quantity\"
+                    from
+                    $self->{prefix}"."_bnl bnl_cluster1,
+                    $self->{prefix}"."_branch owning_branch,
+                    $self->{prefix}"."_branch borrowing_branch,
+                    $self->{prefix}"."_cluster cluster,
+                    $self->{prefix}"."_branch_name_final owning_final_branch,
+                    $self->{prefix}"."_branch_name_final borrowing_final_branch
+                    WHERE
+                    bnl_cluster1.owning_branch=owning_branch.id AND
+                    bnl_cluster1.borrowing_branch=borrowing_branch.id AND
+                    owning_branch.final_branch=owning_final_branch.id AND
+                    borrowing_branch.final_branch=borrowing_final_branch.id AND
+                    cluster.id=bnl_cluster1.owning_cluster AND
+                    bnl_cluster1.borrow_date = STR_TO_DATE(?, '%Y-%m-%d') AND
+                    cluster.id = ?
+                ) AS cluster1,
+                (
+                    SELECT
+                    bnl_cluster2.id AS \"bnl_cluster2_id\",
+                    owning_final_branch.id AS \"cluster2_owning_id\",
+                    borrowing_final_branch.id \"cluster2_borrowing_id\",
+                    owning_final_branch.name \"cluster2_owning_name\",
+                    borrowing_final_branch.name \"cluster2_borrowing_name\",
+                    cluster.name \"cluster2_cluster_name\",
+                    bnl_cluster2.borrow_date as \"cluster2_borrow_date\",
+                    bnl_cluster2.quantity as \"cluster2_quantity\"
+                    FROM
+                    $self->{prefix}"."_bnl bnl_cluster2,
+                    $self->{prefix}"."_branch owning_branch,
+                    $self->{prefix}"."_branch borrowing_branch,
+                    $self->{prefix}"."_cluster cluster,
+                    $self->{prefix}"."_branch_name_final owning_final_branch,
+                    $self->{prefix}"."_branch_name_final borrowing_final_branch
+                    WHERE
+                    bnl_cluster2.owning_branch=owning_branch.id AND
+                    bnl_cluster2.borrowing_branch=borrowing_branch.id AND
+                    owning_branch.final_branch=owning_final_branch.id AND
+                    borrowing_branch.final_branch=borrowing_final_branch.id AND
+                    cluster.id=bnl_cluster2.owning_cluster AND
+                    bnl_cluster2.borrow_date = STR_TO_DATE(?, '%Y-%m-%d') AND
+                    cluster.id = ?
+                ) AS cluster2,
+                $self->{prefix}"."_branch_cluster branch_cluster
+                WHERE
+                cluster2.cluster2_borrow_date=cluster1.cluster1_borrow_date AND
+                cluster2.cluster2_owning_id=cluster1.cluster1_owning_id AND
+                cluster2.cluster2_borrowing_id=cluster1.cluster1_borrowing_id AND
+                branch_cluster.fid=cluster1.cluster1_owning_id
+       ) as alll
     WHERE
-    bnl.owning_branch = owning_branch.id and
-    bnl.borrowing_branch = borrowing_branch.id AND
-    bnl.owning_cluster = owning_cluster.id AND
-    bnl.borrowing_cluster = borrowing_cluster.id AND
-    alll.owning_id = owning_branch.final_branch and
-    alll.borrowing_id = borrowing_branch.final_branch and
-    owning_cluster.type = 'innreach' and
-    borrowing_cluster.type = 'innreach' and
-    bnl.borrow_date = alll.borrow_date and
-    bnl.quantity = alll.quantity
-    ";
-    doUpdateQuery($self,$query,"DELETE duplicate INNREACH $self->{prefix}"."_bnl",\@vals);
+    alll.bnl_cluster2_id=bnl.id AND
+    cid!=bnl.owning_cluster
+     ";
+    $query = "SELECT id,name FROM $self->{prefix}"."_cluster ORDER BY id";
+    my @results = @{$self->{dbHandler}->query($query)};
+    my @cids = ();
+    my @cnames = ();
+    foreach(@results)
+    {
+        my @row = @{$_};
+        push @cids, @row[0];
+        push @cnames, @row[1];
+    }
+    my $cluster1 = $self->{clusterID};
+    my $name1 = $self->{name};
 
-    # ## Delete sierra->sierra duplicates (because of agency)
-    # $query = "
-    # DELETE bnl1
-    # from
-    # $self->{prefix}"."_bnl bnl1,
-    # $self->{prefix}"."_bnl bnl2,
-    # $self->{prefix}"."_branch owning_branch1,
-    # $self->{prefix}"."_branch borrowing_branch1,
-    # $self->{prefix}"."_branch owning_branch2,
-    # $self->{prefix}"."_branch borrowing_branch2,
-    # $self->{prefix}"."_bnl_final_branch_map AS group1,
-    # $self->{prefix}"."_bnl_final_branch_map AS group2
-    # WHERE
-    # group1.cluster_type = 'sierra' and
-    # group2.cluster_type = 'sierra' and
-    # group1.owning_id=group2.owning_id and
-    # group1.borrowing_id=group2.borrowing_id AND
-    # group1.borrow_date=group2.borrow_date AND
-    # group1.quantity=group2.quantity AND
-    # bnl1.owning_branch = owning_branch1.id and
-    # bnl1.borrowing_branch = borrowing_branch1.id and
-    # bnl2.owning_branch = owning_branch2.id and
-    # bnl2.borrowing_branch = borrowing_branch2.id and
-    # bnl1.owning_branch != bnl2.owning_branch AND
-    # owning_branch1.final_branch = group1.owning_id and
-    # borrowing_branch1.final_branch = group1.borrowing_id and
-    # owning_branch2.final_branch = group2.owning_id and
-    # borrowing_branch2.final_branch = group2.borrowing_id and
-    # bnl1.borrow_date = bnl2.borrow_date AND
-    # bnl1.quantity = bnl2.quantity AND
-    # bnl1.owning_cluster != bnl2.owning_cluster AND
-    # owning_branch1.shortname in(select shortname from $self->{prefix}"."_branch_shortname_agency_translate)
-    # ";
-    # doUpdateQuery($self,$query,"DELETE duplicate sierra1->sierra2 duplicates (because of agency) $self->{prefix}"."_bnl",\@vals);
+    ## Reducing the SQL load by snipering only the date ranges included in this execution
+    foreach(@dates)
+    {
+        my $thisDate = $_;
+        for my $i (0 .. $#cids)
+        {
+            if( @cids[$i] != $cluster1 )
+            {
+                my $cluster2 = @cids[$i];
+                my $name2 = @cnames[$i];
+                @vals = ();
+                push(@vals, $thisDate);
+                push(@vals, $cluster1);
+                push(@vals, $thisDate);
+                push(@vals, $cluster2);
+                $query = $queryTemplate;
+                doUpdateQuery($self,$query,"DELETE BNL duplicated between $name1 and $name2 $self->{prefix}"."_bnl",\@vals);
 
-    # ## Delete sierra->sierra duplicates (because of agency)
-    # $query = "
-    # DELETE bnl2
-    # from
-    # $self->{prefix}"."_bnl bnl1,
-    # $self->{prefix}"."_bnl bnl2,
-    # $self->{prefix}"."_branch owning_branch1,
-    # $self->{prefix}"."_branch borrowing_branch1,
-    # $self->{prefix}"."_branch owning_branch2,
-    # $self->{prefix}"."_branch borrowing_branch2,
-    # $self->{prefix}"."_bnl_final_branch_map AS group1,
-    # $self->{prefix}"."_bnl_final_branch_map AS group2
-    # WHERE
-    # group1.cluster_type = 'sierra' and
-    # group2.cluster_type = 'sierra' and
-    # group1.owning_id=group2.owning_id and
-    # group1.borrowing_id=group2.borrowing_id AND
-    # group1.borrow_date=group2.borrow_date AND
-    # group1.quantity=group2.quantity AND
-    # bnl1.owning_branch = owning_branch1.id and
-    # bnl1.borrowing_branch = borrowing_branch1.id and
-    # bnl2.owning_branch = owning_branch2.id and
-    # bnl2.borrowing_branch = borrowing_branch2.id and
-    # bnl1.owning_branch != bnl2.owning_branch AND
-    # owning_branch1.final_branch = group1.owning_id and
-    # borrowing_branch1.final_branch = group1.borrowing_id and
-    # owning_branch2.final_branch = group2.owning_id and
-    # borrowing_branch2.final_branch = group2.borrowing_id and
-    # bnl1.borrow_date = bnl2.borrow_date AND
-    # bnl1.quantity = bnl2.quantity AND
-    # bnl1.owning_cluster != bnl2.owning_cluster AND
-    # owning_branch2.shortname in(select shortname from $self->{prefix}"."_branch_shortname_agency_translate)
-
-    # ";
-    # doUpdateQuery($self,$query,"DELETE duplicate sierra2->sierra1 duplicates (because of agency) $self->{prefix}"."_bnl",\@vals);
-
+                # And now the other direction
+                @vals[1] = $cluster2;
+                @vals[3] = $cluster1;
+                doUpdateQuery($self,$query,"DELETE BNL duplicated between $name2 and $name1 $self->{prefix}"."_bnl",\@vals);
+            }
+            undef $cluseter2;
+            undef $name2;
+        }
+    }
+    undef $cluster1;
+    undef $name1;
+    undef @vals;
 }
-
 
 sub doUpdateQuery
 {
@@ -707,7 +663,7 @@ sub figureWhichDates
     my @ret = ();
     my @dbVals = ();
     
-    if(!$blindDate)
+    if(!$self->{blindDate})
     {
         my $query = "
         select
@@ -718,7 +674,7 @@ sub figureWhichDates
         $self->{prefix}"."_cluster cluster
         where
         cluster.id=bnl.owning_cluster and
-        cluster.name ='".$cluster."'
+        cluster.name ='".$self->{name}."'
         order by 1
         ";
 
@@ -730,39 +686,75 @@ sub figureWhichDates
             $alreadyScraped{ @row[0] } = 1;
         }
     }
-    my $loops = 1;
-    while($loops < $monthsBack)
+    if(!$self->{specificMonth})
+    {
+        my $loops = 1;
+        while($loops < $monthsBack)
+        {
+            my $query = "
+            select
+            concat(
+            extract(year from date_sub(now(),interval $loops month)),
+            '-',
+            extract(month from date_sub(now(), interval $loops month))        
+            ),
+            right(extract(year from date_sub(now(), interval $loops month)),2),
+            extract(month from date_sub(now(), interval $loops month)),
+            cast( 
+            
+            concat
+            (
+                extract(year from date_sub(now(), interval $loops month)),
+                '-',
+                extract(month from date_sub(now(), interval $loops month)),
+                '-01'
+            )
+            as date
+            )
+            ";
+            $self->{log}->addLine($query);
+            my @results = @{$self->{dbHandler}->query($query)};
+            foreach(@results)
+            {
+                my @row = @{$_};
+                push @ret, "" . @months[@row[2]] . " " . @row[1] if !$alreadyScraped{ @row[0] };
+                push @dbVals, @row[3] if !$alreadyScraped{ @row[0] };
+            }
+            $loops++;
+        }
+    }
+    else
     {
         my $query = "
-        select
-        concat(
-        extract(year from date_sub(now(),interval $loops month)),
-        '-',
-        extract(month from date_sub(now(), interval $loops month))        
-        ),
-        right(extract(year from date_sub(now(), interval $loops month)),2),
-        extract(month from date_sub(now(), interval $loops month)),
-        cast( 
-        
-        concat
-        (
-            extract(year from date_sub(now(), interval $loops month)),
+            select
+            concat(
+            extract(year from str_to_date('".$self->{specificMonth}."','%Y-%m-%d')),
             '-',
-            extract(month from date_sub(now(), interval $loops month)),
-            '-01'
-        )
-        as date
-        )
-        ";
-        $self->{log}->addLine($query);
-        my @results = @{$self->{dbHandler}->query($query)};
-        foreach(@results)
-        {
-            my @row = @{$_};
-            push @ret, "" . @months[@row[2]] . " " . @row[1] if !$alreadyScraped{ @row[0] };
-            push @dbVals, @row[3] if !$alreadyScraped{ @row[0] };
-        }
-        $loops++;
+            extract(month from str_to_date('".$self->{specificMonth}."','%Y-%m-%d'))        
+            ),
+            right(extract(year from str_to_date('".$self->{specificMonth}."','%Y-%m-%d')),2),
+            extract(month from str_to_date('".$self->{specificMonth}."','%Y-%m-%d')),
+            cast( 
+            
+            concat
+            (
+                extract(year from str_to_date('".$self->{specificMonth}."','%Y-%m-%d')),
+                '-',
+                extract(month from str_to_date('".$self->{specificMonth}."','%Y-%m-%d')),
+                '-01'
+            )
+            as date
+            )
+            ";
+            $self->{log}->addLine($query);
+            my @results = @{$self->{dbHandler}->query($query)};
+            foreach(@results)
+            {
+                my @row = @{$_};
+                push @ret, "" . @months[@row[2]] . " " . @row[1] if !$alreadyScraped{ @row[0] };
+                push @dbVals, @row[3] if !$alreadyScraped{ @row[0] };
+            }
+            $loops++;
     }
 
     @ret = ([@ret],[@dbVals]);

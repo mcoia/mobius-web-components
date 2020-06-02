@@ -1,22 +1,33 @@
 #!/bin/bash
 
 # Make sure all the leftover stuff isn't running
-# ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
-# ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
-# ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 
-# # run the selenium stuff
-# selenium/start_selenium
+sleep 5
 
-# sleep 5
+ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 
-# ./bnl_import.pl --log /mnt/evergreen/tmp/bnl/bnl_log.log --drupal-config settings.php --dbSeed db_seed.db --recreateDB --debug --blindDate --monthsBack 3
-./bnl_import.pl --log /mnt/evergreen/tmp/bnl/bnl_log.log --drupal-config settings.php --debug --blindDate --monthsBack 3
+sleep 5
 
-# # Make sure all the leftover stuff isn't running
-# ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
-# ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
-# ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+# run the selenium stuff
+selenium/start_selenium
+
+sleep 10
+
+# Wipe out the screenshots from last time
+rm screenshots/*
+
+# ./bnl_import.pl --log /mnt/evergreen/tmp/bnl/bnl_log.log --drupal-config settings.php --dbSeed db_seed.db --recreateDB --debug --blindDate --monthsBack 18
+./bnl_import.pl --log /mnt/evergreen/tmp/bnl/bnl_log.log --drupal-config settings.php --debug --blindDate --monthsBack 1 --specificCluster bridges --specificMonth 2020-1-01
+
+# Make sure all the leftover stuff isn't running
+ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 
 
 # Query to investigate the library naming issues:
@@ -32,3 +43,20 @@
 # cluster.id=branch.cluster and
 # final.id=branch.final_branch
 # group by 1,2,3
+
+# # or
+
+# SELECT
+# DISTINCT
+# branch.institution,(select normalized from mobius_bnl_normalize_branch_name where branch.institution=variation),final.name,GROUP_CONCAT(distinct cluster.name)
+# from 
+# mobius_bnl_branch_name_final final,
+# mobius_bnl_branch branch,
+# mobius_bnl_branch_cluster clusters,
+# mobius_bnl_cluster cluster
+# WHERE
+# clusters.sid=branch.id and
+# cluster.id=branch.cluster and
+# final.id=branch.final_branch
+# group by 1,2,3
+# order by 3,1

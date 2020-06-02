@@ -21,7 +21,7 @@ sub scrape
         sleep 3; # initial page load takes time.
         $self->takeScreenShot('pageload');
         my $continue = handleLandingPage($self);
-        $continue = handleLoginPage($self) if $continue;
+        handleLoginPage($self) if $continue;
         $continue = handleCircStatOwningHome($self) if $continue;
         my @pageVals = @{@dateScrapes[0]};
         my @dbvals = @{@dateScrapes[1]};
@@ -34,7 +34,7 @@ sub scrape
             $pos++;
             $continue = handleCircStatOwningHome($self,1) if $continue;
         }
-        $self->SUPER::cleanDuplicates();
+        $self->SUPER::cleanDuplicates(\@dbvals);
     }
 }
 
@@ -272,15 +272,36 @@ sub handleLandingPage
         
     if(!$self->switchToFrame(\@frameSearchElements))
     {
-        my @forms = $self->{driver}->find_elements('//form');
-        foreach(@forms)
-        {
-            $thisForm = $_;
-            if($thisForm->get_attribute("action") =~ /\/managerep\/startviews\/0\/d\/table_1x1/g )
+
+    # JS way
+        my $owning = $self->{driver}->execute_script("
+            var doms = document.getElementsByTagName('form');
+            var stop = 0;
+            for(var i=0;i<doms.length;i++)
             {
-                $thisForm->submit();
+                if(!stop)
+                {
+                    var thisaction = doms[i].getAttribute('action');
+
+                    if(thisaction.match(/\\/managerep\\/startviews\\/0\\/d\\/table_1x1/g))
+                    {
+                        doms[i].submit();
+                        stop = 1;
+                    }
+                }
             }
-        }
+            ");
+
+        # Selemnium Way
+        # my @forms = $self->{driver}->find_elements('//form');
+        # foreach(@forms)
+        # {
+            # $thisForm = $_;
+            # if($thisForm->get_attribute("action") =~ /\/managerep\/startviews\/0\/d\/table_1x1/g )
+            # {
+                # $thisForm->submit();
+            # }
+        # }
         sleep 2;
         $self->{driver}->switch_to_frame();
         $self->takeScreenShot('handleLandingPage');
@@ -413,7 +434,7 @@ sub handleLoginPage
     }
     else
     {
-        print "no login page found";
+        print "no login page found\n";
         return 0;
     }
     return 1;  # always return true even when it doesn't prompt to login
