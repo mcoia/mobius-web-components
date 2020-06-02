@@ -106,12 +106,15 @@ sub translateShortCodes
         }
         catch
         {
+            print "ERROR: PG Connection = \n".$@."\n";
+            $self->{log}->addLine("ERROR: PG Connection = \n".$@);
             $self->{postgresConnector} = 0;
         };
     }
     else
     {
         $worked = 1 if($self->{postgresConnector}->getQuote(""));
+        $self->{log}->addLine("PG Connection = $worked") if $self->{debug};
     }
     if($worked)
     {
