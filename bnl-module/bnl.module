@@ -23,9 +23,11 @@ function mobius_bnl_display()
   drupal_page_is_cacheable($allow_caching = FALSE);
   drupal_add_css('/sites/all/libraries/chosen/chosen.css', 'external');
   drupal_add_js('/sites/all/libraries/chosen/chosen.jquery.js', 'external');
+  drupal_add_js('/sites/all/libraries/chosen/monthpicker/MonthPicker.min.js', 'external');
   drupal_add_js('https://cdn.jsdelivr.net/momentjs/latest/moment.min.js', 'external');
   drupal_add_js('https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js', 'external');
   drupal_add_css('https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css', 'external');
+  drupal_add_css('/sites/all/libraries/chosen/monthpicker/MonthPicker.min.css', 'external');
 
   $page = array (
     '#markup' =>
@@ -34,16 +36,28 @@ function mobius_bnl_display()
     <span id="mobius_bnl_page_is_loaded"></span>
     <div id="bnl_panel">
     <div id="bnl_filter_select_master_container">
-   
+
         <div id="bnl_date_div">
-        <label for="daterange">Date Range</label>
-        <div class="date_click_to_change">(click to change)</div>
-        <input id="daterange" type="text" />
-        <div class="data_date_range">Database currently contains data between <span class="date_range" id="data_date_start"></span> and <span class="date_range" id="data_date_end"></span></div>
-        </div>
+            <div id="date_range_title">Date Range</div>
+            <div class="date_dropdown_wrapper">
+                <label for="date_from">From</label>
+                <input class="chosen_date_display" id="date_from"></input>
+                <input class="date_dropdown" id="date_from_d" pop="#date_from" widget="#date_from_widget" type="text" />
+                <div class="date_widget" id="date_from_widget"></div>
+            </div>
+            <div class="date_dropdown_wrapper">
+                <label for="date_to">To</label>
+                <input class="chosen_date_display" id="date_to"></input>
+                <input class="date_dropdown" id="date_to_d" pop="#date_to" widget="#date_to_widget" type="text" />
+                <div class="date_widget" id="date_to_widget"></div>
+            </div>
+            <div class="data_date_range">
+                Database currently contains data between <span class="date_range" id="data_date_start"></span> and <span class="date_range" id="data_date_end"></span>
+            </div>
+        </div> <!-- bnl_date_div -->
 
         <div class="bnl_filter_container">
-        <div class="bnl_title_container">Owning Library</div>
+        <div class="bnl_title_container">Lending Library</div>
             <div class="bnl_dropdown_wrapper">
                 <div id="bnl_filter_branch_owning" class="bnl_dropdown">
                 </div>
@@ -52,7 +66,7 @@ function mobius_bnl_display()
             <div class="bnl_dropdown_wrapper">
                 <div id="bnl_filter_cluster_owning" class="bnl_dropdown">
                 </div>
-                CLUSTER
+                CLUSTER/STANDALONE
             </div>
             <div class="bnl_dropdown_wrapper">
                 <div id="bnl_filter_system_owning" class="bnl_dropdown">
@@ -71,7 +85,7 @@ function mobius_bnl_display()
             <div class="bnl_dropdown_wrapper">
                 <div id="bnl_filter_cluster_borrowing" class="bnl_dropdown">
                 </div>
-                CLUSTER
+                CLUSTER/STANDALONE
             </div>
             <div class="bnl_dropdown_wrapper">
                 <div id="bnl_filter_system_borrowing" class="bnl_dropdown">

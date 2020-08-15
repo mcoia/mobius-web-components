@@ -5,6 +5,10 @@
     text-align: center;
     font-size: 22pt;
     font-weight: bold;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
 }
 
 #bnl_date_div > label {
@@ -13,18 +17,82 @@
     padding: 5px;
 }
 
-.date_click_to_change {
-    font-size: 9pt;
-    color: red;
+#date_range_title {
+    width: 100%;
 }
 
-#daterange {
-    width: 34%;
-    border: 4px solid black;
-    padding: 1em;
+.date_dropdown_wrapper {
+   min-height: 300px;
+    margin: 10px;
+    flex-grow: 1;
+}
+
+.date_dropdown_wrapper label {
+    font-size: 20pt;
+}
+
+.date_dropdown {
+    width: 1px;
+    height: 1px;
+    /* display: none; */
+}
+
+.chosen_date_display {
+    padding: 0em 0em;
     text-align: center;
     color: #0099A8;
+    width: 100%;
+    border: 0px;
 }
+
+/* Date picker overrides */
+.month-picker .ui-widget .ui-widget-content .ui-corner-all {
+    max-width: 300PX;
+}
+
+.month-picker-month-table {
+    max-width: 300px;
+}
+
+.month-picker-month-table .ui-button {
+    text-decoration: none;
+    display: inline-block;
+    padding: 8px;
+    width: 4em !important;
+    margin: 1px !important;
+    font-size: 13pt;
+    font-weight: bold;
+    color: #0099A8;
+}
+
+.month-picker-year-table .month-picker-title .ui-button {
+    color: #363636;
+    text-decoration: none;
+}
+
+.month-picker-header {
+    font-size: 12pt;
+}
+
+.month-picker td {
+    padding: 4px !important;
+}
+
+.month-picker-previous {
+    width: 15% !important;
+}
+
+.month-picker-next {
+    width: 15% !important;
+}
+
+.month-picker-year-table .ui-button {
+    font-size: 1.1em;
+    width: 100%;
+    cursor: default;
+    margin: 0;
+}
+/* END Date picker overrides END */
 
 #bnl_filter_select_master_container {
     display: flex;
@@ -114,6 +182,7 @@
 .data_date_range {
     color: #078000;
     font-size: 12pt;
+    width: 100%;
 }
 
 .data_date_range > .date_range {
@@ -195,9 +264,10 @@
 }
 
 @media only screen and (max-width: 815px) {
-
-    #daterange {
-        width: 50%;
+    
+    .month-picker-month-table .ui-button {
+        width: 100%;
+        margin: 0px;
     }
 }
 
