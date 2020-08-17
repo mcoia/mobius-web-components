@@ -101,7 +101,26 @@
     align-content: flex-start;
 }
 
-.bnl_filter_container {
+.bnl_filter_switcher_container {
+    width: 100%;
+}
+
+.bnl_basic_filter_container {
+    flex-grow: 1;
+    width: 100%;
+}
+
+.bnl_basic_filter_container > .bnl_dropdown_wrapper {
+    width: 100% !important;
+}
+
+#filter_switcher_button {
+    cursor: pointer;
+    text-decoration: underline;
+    color: blue;
+}
+
+.bnl_advanced_filter_container {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
@@ -245,6 +264,10 @@
   animation: spin 2s linear infinite;
 }
 
+.hide {
+    display: none !important
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -253,7 +276,7 @@
 
 @media only screen and (max-width: 1150px) {
     
-    .bnl_filter_container {
+    .bnl_advanced_filter_container {
         width: 98%;
     }
 

@@ -5,6 +5,11 @@ jQuery(document).ready(function()
         var branch_obj;
         var dropdown_vals = 
         {
+            branch_basic: {
+                dom: '#bnl_basic_filter_branch',
+                chooser: 'basic_branch_multi_select',
+                placeholder: 'Choose Library'
+            },
             branch: {
                 dom: '#bnl_filter_branch',
                 chooser: 'branch_multi_select',
@@ -28,21 +33,27 @@ jQuery(document).ready(function()
         {
             jQuery("#bnl_submit_button").addClass('bnl_submit_not_allowed');
             jQuery('#bnl_submit_button').unbind("click");
-            if(jQuery("#daterange").val().length > 0)
+            var good = 0;
+            if( (jQuery("#date_from").val().length > 0) && (jQuery("#date_to").val().length > 0) )
             {
-                if(jQuery("#daterange").val().length > 0 && jQuery("#daterange").val().match(/\d{2}\/\d{4}\s\-\s\d{2}\/\d{4}/) !== null)
+                if(jQuery("#date_from").val().length > 0 && jQuery("#date_from").val().match(/\d{2}\/\d{4}/) !== null)
                 {
-                    jQuery("#bnl_submit_button").removeClass('bnl_submit_not_allowed');
-                    jQuery('#bnl_submit_button').click(function(){
-                        bnl_generate_data('#bnl_branch_div', '#bnl_cluster_div', '#bnl_owning_summary_div', '#bnl_borrowing_summary_div' ,dropdown_vals);
-                    });
-                }
-                else
-                {
-                    jQuery('#bnl_submit_button').unbind("click");
+                    if(jQuery("#date_from").val().length > 0 && jQuery("#date_from").val().match(/\d{2}\/\d{4}/) !== null)
+                    {
+                        good = 1;
+                        jQuery("#bnl_submit_button").removeClass('bnl_submit_not_allowed');
+                        jQuery('#bnl_submit_button').click(function(){
+                            bnl_generate_data('#bnl_branch_div', '#bnl_cluster_div', '#bnl_owning_summary_div', '#bnl_borrowing_summary_div', dropdown_vals);
+                        });
+                    }
                 }
             }
+            if(!good)
+            {
+                jQuery('#bnl_submit_button').unbind("click");
+            }
         }
+
         function bnlGetCookie(cname) {
             var name = cname + "=";
             var ca = document.cookie.split(';');
@@ -80,12 +91,14 @@ jQuery(document).ready(function()
             {
                 jQuery(bnl_panel_dom).removeClass('loader');
                 jQuery(bnl_panel_dom).html(saveHTML);
+                jQuery("#filter_switcher_button").click(function(){ filter_show_hide(); } ); //wire up the clickable basic/advanced filter trigger
                 
                 // fill in the date ranges available in the data
                 jQuery.get("borrowing_n_lending_get?get_data_date_range=1", function(data)
                 {
                     jQuery("#data_date_start").html(data['date_start']);
                     jQuery("#data_date_end").html(data['date_end']);
+                    bnl_init_date();
                 });
 
                 var tarray = ['owning','borrowing'];
@@ -94,12 +107,24 @@ jQuery(document).ready(function()
                     for(var i in tarray)
                     {
                         var type = tarray[i];
-                        var selectHTML = '<select multiple id="'+type+'_'+dropdown_vals['branch']['chooser']+'" data-placeholder="'+dropdown_vals['branch']['placeholder']+'(s)...">';
+                        // var selectHTML = '<select multiple id="'+type+'_'+dropdown_vals['branch']['chooser']+'" data-placeholder="'+dropdown_vals['branch']['placeholder']+'(s)...">';
+                        var selectHTML = '<select multiple id="select_id_string" data-placeholder="select_placeholder">';
                         for (var branch_pos in branch_obj['branch_order'])
                         {
                             selectHTML += '<option value="'+branch_obj['branch_order'][branch_pos]+'">'+branch_obj['branch'][branch_obj['branch_order'][branch_pos]]+'</option>\n';
                         }
                         selectHTML += '</select>';
+                        
+                        if(type == 'owning') // Take care of the simple filter dropdown menu
+                        {
+                            var basicHTML = selectHTML;
+                            basicHTML = basicHTML.replace(/multiple\sid="select_id_string"/gi,'multiple id="'+type+'_'+dropdown_vals['branch_basic']['chooser']+'"');
+                            basicHTML = basicHTML.replace(/data-placeholder="select_placeholder"/gi,'data-placeholder="'+dropdown_vals['branch_basic']['placeholder']+'(s)..."');
+                            jQuery(dropdown_vals['branch_basic']['dom']+"_"+type).html(basicHTML);
+                            jQuery('#'+type+'_'+dropdown_vals['branch_basic']['chooser']).chosen();
+                        }
+                        selectHTML = selectHTML.replace(/multiple\sid="select_id_string"/gi,'multiple id="'+type+'_'+dropdown_vals['branch']['chooser']+'"');
+                        selectHTML = selectHTML.replace(/data-placeholder="select_placeholder"/gi,'data-placeholder="'+dropdown_vals['branch']['placeholder']+'(s)..."');
                         jQuery(dropdown_vals['branch']['dom']+"_"+type).html(selectHTML);
                         jQuery('#'+type+'_'+dropdown_vals['branch']['chooser']).chosen().change(
                         function(data)
@@ -115,15 +140,26 @@ jQuery(document).ready(function()
                         var type = tarray[i];
                         var selectHTML_cluster = '<select multiple id="'+type+'_'+dropdown_vals['cluster']['chooser']+'" data-placeholder="'+dropdown_vals['cluster']['placeholder']+'(s)...">';
                         var selectHTML_system = '<select multiple id="'+type+'_'+dropdown_vals['system']['chooser']+'" data-placeholder="'+dropdown_vals['system']['placeholder']+'(s)...">';
+                        var clusterSort = [];
                         for (var cluster in branch_obj['cluster'])
                         {
-                            if(branch_obj['cluster'][cluster]['type'] == 'sierra')
+                            var t = {'name': branch_obj['cluster'][cluster]['name'], 'id': cluster };
+                            clusterSort.push(t);
+                        }
+                        clusterSort.sort(function(a,b)
+                        {
+                            return a['name'].toLowerCase() > b['name'].toLowerCase();
+                        });
+
+                        for (var cluster in clusterSort)
+                        {
+                            if(branch_obj['cluster'][clusterSort[cluster]['id']]['type'] == 'sierra')
                             {
-                                selectHTML_cluster += '<option value="'+cluster+'">'+branch_obj['cluster'][cluster]['name']+'</option>\n';
+                                selectHTML_cluster += '<option value="'+clusterSort[cluster]['id']+'">'+clusterSort[cluster]['name']+'</option>\n';
                             }
                             else
                             {
-                                selectHTML_system += '<option value="'+cluster+'">'+branch_obj['cluster'][cluster]['name']+'</option>\n';
+                                selectHTML_system += '<option value="'+clusterSort[cluster]['id']+'">'+clusterSort[cluster]['name']+'</option>\n';
                             }
                         }
                         selectHTML_cluster += '</select>';
@@ -142,7 +178,6 @@ jQuery(document).ready(function()
                         });
                     }
                 }
-                bnl_init_date();
                 checkGetable();
             });
             jQuery("#firsttimebutton").click(function(){ bnl_firsttimeinstructions();});
@@ -176,9 +211,9 @@ jQuery(document).ready(function()
                     lent: {
                             dom: owning_dom,
                             table_dom: 'bnl_owning_summary_table',
-                            th_lib_head: 'Owning Library',
+                            th_lib_head: 'Lending Library',
                             th_total_head: 'Lent Total',
-                            table_h1: 'Owning Summary',
+                            table_h1: 'Lending Summary',
                             total: 0,
                             html: ''
                         },
@@ -250,7 +285,7 @@ jQuery(document).ready(function()
                         owning: {},
                         borrowing: {}
                     }
-                    branch_table_html = "<table id = 'bnl_branch_table'><thead><tr><th>Owning Library</th><th>Borrowing Library</th><th>Amount</th></tr></thead><tbody>";
+                    branch_table_html = "<table id = 'bnl_branch_table'><thead><tr><th>Lending Library</th><th>Borrowing Library</th><th>Amount</th></tr></thead><tbody>";
                     for (var borrow_id in data['amount_branch'])
                     {
                         used['borrowing'][borrow_id] = 1;
@@ -289,7 +324,7 @@ jQuery(document).ready(function()
                 }
                 if(data['amount_cluster'])
                 {
-                    cluster_table_html = "<table id = 'bnl_cluster_table'><thead><tr><th>Owning Cluster</th><th>Borrowing Cluster</th><th>Amount</th></tr></thead><tbody>";
+                    cluster_table_html = "<table id = 'bnl_cluster_table'><thead><tr><th>Lending Cluster</th><th>Borrowing Cluster</th><th>Amount</th></tr></thead><tbody>";
                     for (var borrow_id in data['amount_cluster'])
                     {
                         for (var owning_id in data['amount_cluster'][borrow_id])
@@ -418,37 +453,51 @@ jQuery(document).ready(function()
 
         function bnl_init_date()
         {
-            jQuery("#daterange").daterangepicker({
-                opens: 'left',
-                maxDate: moment(),
-                autoApply: true,
-                ranges: {
-                   'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')],
-                   'Two Months Ago': [moment().subtract(2, 'month').startOf('month'), moment().subtract(2, 'month').endOf('month')],
-                   'Three Months Ago': [moment().subtract(3, 'month').startOf('month'), moment().subtract(3, 'month').endOf('month')],
-                   'Four Months Ago': [moment().subtract(4, 'month').startOf('month'), moment().subtract(4, 'month').endOf('month')]
-                }
-              }, function(start, end, label) {
-                    console.log("A new date selection was made: " + start.format('YYYY-MM-DD') + ' to ' + end.format('YYYY-MM-DD'));
-                    bnlSetCookie('bnl_start_date',start.format('MM/DD/YYYY'),100);
-                    bnlSetCookie('bnl_end_date',end.format('MM/DD/YYYY'),100);
-                    checkGetable();
-                  });
-
-            jQuery("#daterange").on('apply.daterangepicker', function(ev, picker) {
-            jQuery(this).val(picker.startDate.format('MM/YYYY') + ' - ' + picker.endDate.format('MM/YYYY'));
-              });
-
-            jQuery("#daterange").on('cancel.daterangepicker', function(ev, picker) {
-                  jQuery(this).val('');
-              });
+            jQuery(".date_dropdown").each(function(){
+                var parent_dom = jQuery(this).parent('.date_dropdown_wrapper');
+                var display_date = jQuery(this).attr('pop');
+                var widget = jQuery(this).attr('widget');
+                var tid = jQuery(this).attr('id');
+                var oldest_date = moment(jQuery("#data_date_start").html(),'MM/YYYY');
+                var oldest_months_back = oldest_date.diff(moment(),'months');
+                var newest_date = moment(jQuery("#data_date_end").html(),'MM/YYYY');
+                var newest_months_back = newest_date.diff(moment(),'months');
+                jQuery(this).MonthPicker(
+                {
+                    'MonthFormat': 'mm/yy',
+                    'OnBeforeMenuClose': function(event){event.preventDefault();},
+                    'Button': false,
+                    'Position': {'of': parent_dom},
+                    'AltField': display_date,
+                    'MinMonth': oldest_months_back,
+                    'MaxMonth': newest_months_back,
+                    'SelectedMonth': newest_months_back,
+                    OnAfterChooseMonth: function( selectedDate ){
+                        console.log(jQuery(this).attr('id'));
+                        console.log(jQuery(jQuery(this).attr('pop')).val());
+                        bnlSetCookie(jQuery(this).attr('pop'),jQuery(jQuery(this).attr('pop')).val(),100);
+                        },
+                    OnAfterMenuOpen: function(){
+                        jQuery('#MonthPicker_'+tid).detach().appendTo(widget);
+                        jQuery('#MonthPicker_'+tid).css('position','relative');
+                        jQuery('#MonthPicker_'+tid).css('top','');
+                        jQuery('#MonthPicker_'+tid).css('left','');
+                        jQuery('#MonthPicker_'+tid).css('z-index','0');
+                        // jQuery("#date_from").val(jQuery("#data_date_end").html());
+                        // jQuery("#date_to").val(jQuery("#data_date_end").html());
+                        }
+                })
+                .click()
+                .hide();
+            });
+            
             var startDate = bnlGetCookie('bnl_start_date');
             var endDate = bnlGetCookie('bnl_end_date');
             if(startDate && endDate)
             {
-                jQuery("#daterange").data('daterangepicker').setStartDate(startDate);
-                jQuery("#daterange").data('daterangepicker').setEndDate(endDate);
-                jQuery("#daterange").val(moment(startDate, 'MM/DD/YYYY').format('MM/YYYY') + " - " + moment(endDate, 'MM/DD/YYYY').format('MM/YYYY'));
+                // jQuery("#daterange").data('daterangepicker').setStartDate(startDate);
+                // jQuery("#daterange").data('daterangepicker').setEndDate(endDate);
+                // jQuery("#daterange").val(moment(startDate, 'MM/DD/YYYY').format('MM/YYYY') + " - " + moment(endDate, 'MM/DD/YYYY').format('MM/YYYY'));
             }
         }
         
@@ -571,6 +620,22 @@ jQuery(document).ready(function()
             }
         }
 
+        function filter_show_hide()
+        {
+            if(jQuery("#filter_switcher_word").html() == 'Advanced')
+            {
+                jQuery(".bnl_basic_filter_container").addClass("hide");
+                jQuery(".bnl_advanced_filter_container").removeClass("hide");
+                jQuery("#filter_switcher_word").html("Basic");
+            }
+            else
+            {
+                jQuery(".bnl_advanced_filter_container").addClass("hide");
+                jQuery(".bnl_basic_filter_container").removeClass("hide");
+                jQuery("#filter_switcher_word").html("Advanced");
+            }
+        }
     }
+    
 });
 

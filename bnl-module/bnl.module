@@ -56,7 +56,20 @@ function mobius_bnl_display()
             </div>
         </div> <!-- bnl_date_div -->
 
-        <div class="bnl_filter_container">
+        <div class="bnl_filter_switcher_container">
+            <a id="filter_switcher_button">Show <span id="filter_switcher_word">Advanced</span> filters</a>
+        </div> <!-- bnl_basic_filter_container -->
+
+        <div class="bnl_basic_filter_container">
+        <div class="bnl_title_container">Library Selection</div>
+            <div class="bnl_dropdown_wrapper">
+                <div id="bnl_basic_filter_branch_owning" class="bnl_dropdown">
+                </div>
+                LIBRARY
+            </div>
+        </div> <!-- bnl_basic_filter_container -->
+
+        <div class="bnl_advanced_filter_container hide">
         <div class="bnl_title_container">Lending Library</div>
             <div class="bnl_dropdown_wrapper">
                 <div id="bnl_filter_branch_owning" class="bnl_dropdown">
@@ -73,9 +86,9 @@ function mobius_bnl_display()
                 </div>
                 SYSTEM
             </div>
-        </div> <!-- bnl_filter_container -->
+        </div> <!-- bnl_advanced_filter_container -->
 
-        <div class="bnl_filter_container">
+        <div class="bnl_advanced_filter_container hide">
         <div class="bnl_title_container">Borrowing Library</div>
             <div class="bnl_dropdown_wrapper">
                 <div id="bnl_filter_branch_borrowing" class="bnl_dropdown">
@@ -92,11 +105,11 @@ function mobius_bnl_display()
                 </div>
                 SYSTEM
             </div>
-        </div> <!-- bnl_filter_container -->
+        </div> <!-- bnl_advanced_filter_container -->
 
-        <div class="bnl_filter_container">
+        <div class="bnl_advanced_filter_container hide">
             <input type="checkbox" name="show-zeros" id="show_zeros"></input><label id="show_zeros_label" for="show_zeros">Show Zeros</label>
-        </div> <!-- bnl_filter_container -->
+        </div> <!-- bnl_advanced_filter_container -->
     
     <div id="bnl_submit_container"><div id="bnl_submit_button">Get Results!</div></div>
     
