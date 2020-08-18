@@ -33,22 +33,38 @@ jQuery(document).ready(function()
         {
             jQuery("#bnl_submit_button").addClass('bnl_submit_not_allowed');
             jQuery('#bnl_submit_button').unbind("click");
-            var good = 0;
+            var good_dates = 0;
+            var good_libs = 0;
+            if(jQuery("#filter_switcher_word").html() != 'Advanced') // advanced filters do not require any library input
+            {
+                good_libs = 1;
+            }
+            else // Basic filter requires input
+            {
+                var dom = "#owning_"+dropdown_vals['branch_basic']['chooser'];
+                if(jQuery(dom).val() && jQuery(dom).val().length > 0)
+                {
+                    good_libs = 1;
+                }
+            }
             if( (jQuery("#date_from").val().length > 0) && (jQuery("#date_to").val().length > 0) )
             {
                 if(jQuery("#date_from").val().length > 0 && jQuery("#date_from").val().match(/\d{2}\/\d{4}/) !== null)
                 {
                     if(jQuery("#date_from").val().length > 0 && jQuery("#date_from").val().match(/\d{2}\/\d{4}/) !== null)
                     {
-                        good = 1;
-                        jQuery("#bnl_submit_button").removeClass('bnl_submit_not_allowed');
-                        jQuery('#bnl_submit_button').click(function(){
-                            bnl_generate_data('#bnl_branch_div', '#bnl_cluster_div', '#bnl_owning_summary_div', '#bnl_borrowing_summary_div', dropdown_vals);
-                        });
+                        good_dates = 1;
                     }
                 }
             }
-            if(!good)
+            if(good_dates && good_libs)
+            {
+                jQuery("#bnl_submit_button").removeClass('bnl_submit_not_allowed');
+                jQuery('#bnl_submit_button').click(function(){
+                    bnl_generate_data('#bnl_lib_to_lib_div', '#bnl_my_lending_div', '#bnl_my_borrowing_div', dropdown_vals);
+                });
+            }
+            else
             {
                 jQuery('#bnl_submit_button').unbind("click");
             }
@@ -96,9 +112,7 @@ jQuery(document).ready(function()
                 // fill in the date ranges available in the data
                 jQuery.get("borrowing_n_lending_get?get_data_date_range=1", function(data)
                 {
-                    jQuery("#data_date_start").html(data['date_start']);
-                    jQuery("#data_date_end").html(data['date_end']);
-                    bnl_init_date();
+                    bnl_init_date(data);
                 });
 
                 var tarray = ['owning','borrowing'];
@@ -119,9 +133,9 @@ jQuery(document).ready(function()
                         {
                             var basicHTML = selectHTML;
                             basicHTML = basicHTML.replace(/multiple\sid="select_id_string"/gi,'multiple id="'+type+'_'+dropdown_vals['branch_basic']['chooser']+'"');
-                            basicHTML = basicHTML.replace(/data-placeholder="select_placeholder"/gi,'data-placeholder="'+dropdown_vals['branch_basic']['placeholder']+'(s)..."');
+                            basicHTML = basicHTML.replace(/data-placeholder="select_placeholder"/gi,'data-placeholder="'+dropdown_vals['branch_basic']['placeholder']+'..."');
                             jQuery(dropdown_vals['branch_basic']['dom']+"_"+type).html(basicHTML);
-                            jQuery('#'+type+'_'+dropdown_vals['branch_basic']['chooser']).chosen();
+                            jQuery('#'+type+'_'+dropdown_vals['branch_basic']['chooser']).chosen({max_selected_options: 1}).change(function(){checkGetable();});
                         }
                         selectHTML = selectHTML.replace(/multiple\sid="select_id_string"/gi,'multiple id="'+type+'_'+dropdown_vals['branch']['chooser']+'"');
                         selectHTML = selectHTML.replace(/data-placeholder="select_placeholder"/gi,'data-placeholder="'+dropdown_vals['branch']['placeholder']+'(s)..."');
@@ -130,6 +144,7 @@ jQuery(document).ready(function()
                         function(data)
                         {
                             disable_other_dropdowns(data.currentTarget.id,dropdown_vals);
+                            checkGetable();
                         });
                     }
                 }
@@ -170,12 +185,26 @@ jQuery(document).ready(function()
                         function(data)
                         {
                             disable_other_dropdowns(data.currentTarget.id,dropdown_vals);
+                            checkGetable();
                         });
                         jQuery('#'+type+'_'+dropdown_vals['system']['chooser']).chosen().change(
                         function(data)
                         {
                             disable_other_dropdowns(data.currentTarget.id,dropdown_vals);
+                            checkGetable();
                         });
+                    }
+                }
+                // Make a new entry for branch_to_system for later use
+                branch_obj['branch_to_system'] = {};
+                for(var branch in branch_obj['branch_to_cluster'])
+                {
+                    for(var cluster_id in branch_obj['branch_to_cluster'][branch])
+                    {
+                        if(branch_obj['cluster'][cluster_id]['type'] == 'innreach')
+                        {
+                            branch_obj['branch_to_system'][branch] = cluster_id;
+                        }
                     }
                 }
                 checkGetable();
@@ -184,53 +213,54 @@ jQuery(document).ready(function()
             jQuery("#instructions_show_hide_a").click(function(){ bnl_show_hide();});
         }
 
-        function bnl_generate_data(branch_dom, cluster_dom, owning_dom, borrowing_dom, dropdown_vals)
+        function bnl_generate_data(lib_to_lib_dom, my_lending_dom, my_borrowing_dom, dropdown_vals)
         {
             var includeZeros = jQuery("#show_zeros").is(':checked');
-            var startDate = bnlGetCookie('bnl_start_date');
-            var endDate = bnlGetCookie('bnl_end_date');
+            var startDate = bnlGetCookie('date_from');
+            var endDate = bnlGetCookie('date_to');
             if(startDate && endDate)
             {
-                startDate = moment(startDate, 'MM/DD/YYYY').format('YYYY-MM');
-                endDate = moment(endDate, 'MM/DD/YYYY').format('YYYY-MM');
-                bnl_generate_date_summary_tables(owning_dom, borrowing_dom, dropdown_vals, startDate, endDate)
-                bnl_generate_branch_and_cluster_tables(branch_dom, cluster_dom, dropdown_vals, includeZeros, startDate, endDate);
+                startDate = moment(startDate, 'MM/YYYY').format('YYYY-MM');
+                endDate = moment(endDate, 'MM/YYYY').format('YYYY-MM');
+                bnl_generate_tables(lib_to_lib_dom, my_lending_dom, my_borrowing_dom, dropdown_vals, startDate, endDate)
             }
         }
 
-        function bnl_generate_date_summary_tables(owning_dom, borrowing_dom, dropdown_vals, startDate, endDate)
+        function bnl_generate_tables(lib_to_lib_dom, my_lending_dom, my_borrowing_dom, dropdown_vals, startDate, endDate)
         {
             var owning_table_html = "";
             var borrowing_table_html = "";
-            jQuery(owning_dom).html(' ');
-            jQuery(owning_dom).addClass('loader');
-            jQuery(borrowing_dom).html(' ');
-            jQuery(borrowing_dom).addClass('loader');
+            jQuery(my_lending_dom).html(' ');
+            jQuery(my_lending_dom).addClass('loader');
+            jQuery(my_borrowing_dom).html(' ');
+            jQuery(my_borrowing_dom).addClass('loader');
+            jQuery(lib_to_lib_dom).html(' ');
+            jQuery(lib_to_lib_dom).addClass('loader');
             var types =
                 {
                     lent: {
-                            dom: owning_dom,
-                            table_dom: 'bnl_owning_summary_table',
+                            dom: my_lending_dom,
+                            table_dom: 'bnl_my_lending_table',
                             th_lib_head: 'Lending Library',
                             th_total_head: 'Lent Total',
                             table_h1: 'Lending Summary',
-                            total: 0,
+                            total: {},
                             html: ''
                         },
                     borrow: {
-                            dom: borrowing_dom,
+                            dom: my_borrowing_dom,
                             table_dom: 'bnl_borrowing_summary_table',
                             th_lib_head: 'Borrowing Library',
                             th_total_head: 'Borrow Total',
                             table_h1: 'Borrowing Summary',
-                            total: 0,
+                            total: {},
                             html: ''
                         }
                 }
 
             var qstring = getMultiSelectOptionsForQueryString(dropdown_vals);
-            console.log("Gathering from borrowing_n_lending_get?datesummary=1&startdate="+startDate+"&enddate="+endDate+qstring);
-            jQuery.get("borrowing_n_lending_get?datesummary=1&startdate="+startDate+"&enddate="+endDate+qstring, function(data)
+            console.log("Gathering from borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring);
+            jQuery.get("borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring, function(data)
             {
                 for(var type in types)
                 {
@@ -264,12 +294,12 @@ jQuery(document).ready(function()
             });
         }
 
-        function bnl_generate_branch_and_cluster_tables(branch_dom, cluster_dom, dropdown_vals, includeZeros, startDate, endDate)
+        function bnl_generate_branch_and_cluster_tables(lib_to_lib_dom, cluster_dom, dropdown_vals, includeZeros, startDate, endDate) // preserved just in case we want to put the cluster table back in
         {
             var branch_table_html = "";
             var cluster_table_html = "";
-            jQuery(branch_dom).html(' ');
-            jQuery(branch_dom).addClass('loader');
+            jQuery(lib_to_lib_dom).html(' ');
+            jQuery(lib_to_lib_dom).addClass('loader');
             jQuery(cluster_dom).html(' ');
             jQuery(cluster_dom).addClass('loader');
             
@@ -337,8 +367,8 @@ jQuery(document).ready(function()
 
             }).done(function(){
                 console.log("Finished loading branch_table");
-                jQuery(branch_dom).removeClass('loader');
-                jQuery(branch_dom).html(
+                jQuery(lib_to_lib_dom).removeClass('loader');
+                jQuery(lib_to_lib_dom).html(
                     "<h1>Library to Library</h1>"+
                     bnl_create_csv_download_link("Branch to Branch","bnl_branch_table")+
                     branch_table_html
@@ -374,17 +404,31 @@ jQuery(document).ready(function()
                 var type = tarray[i];
                 for(var drop_type in dropdown_vals)
                 {
-                    var qstring = drop_type + "_" + type;
-                    var dom = "#"+type+"_"+dropdown_vals[drop_type]['chooser'];
-                    if(jQuery(dom).val() && jQuery(dom).val().length > 0)
+                    var collect = 0;
+                    var q_drop_type = drop_type;
+                    if(jQuery("#filter_switcher_word").html() == 'Advanced' && drop_type == 'branch_basic')  // basic filter (only one)
                     {
-                        ret += '&'+qstring+'=';
-                        var a = jQuery(dom).val();
-                        for(var j in a)
+                        collect = 1;
+                        q_drop_type = 'branch';
+                    }
+                    else if(jQuery("#filter_switcher_word").html() != 'Advanced' && drop_type != 'branch_basic') // advanced filters
+                    {
+                        collect = 1;
+                    }
+                    if(collect)
+                    {
+                        var qstring = q_drop_type + "_" + type;
+                        var dom = "#"+type+"_"+dropdown_vals[drop_type]['chooser'];
+                        if(jQuery(dom).val() && jQuery(dom).val().length > 0)
                         {
-                            ret += a[j] + ',';
+                            ret += '&'+qstring+'=';
+                            var a = jQuery(dom).val();
+                            for(var j in a)
+                            {
+                                ret += a[j] + ',';
+                            }
+                            ret = ret.substring(0, ret.length - 1);
                         }
-                        ret = ret.substring(0, ret.length - 1);
                     }
                 }
             }
@@ -451,17 +495,18 @@ jQuery(document).ready(function()
             return ret;
         }
 
-        function bnl_init_date()
+        function bnl_init_date(data)
         {
             jQuery(".date_dropdown").each(function(){
                 var parent_dom = jQuery(this).parent('.date_dropdown_wrapper');
                 var display_date = jQuery(this).attr('pop');
                 var widget = jQuery(this).attr('widget');
                 var tid = jQuery(this).attr('id');
-                var oldest_date = moment(jQuery("#data_date_start").html(),'MM/YYYY');
+                var oldest_date = moment(data['date_start'],'MM/YYYY');
                 var oldest_months_back = oldest_date.diff(moment(),'months');
-                var newest_date = moment(jQuery("#data_date_end").html(),'MM/YYYY');
+                var newest_date = moment(data['date_end'],'MM/YYYY');
                 var newest_months_back = newest_date.diff(moment(),'months');
+                bnlSetCookie( jQuery(this).attr('pop')+"", newest_months_back, 100 );
                 jQuery(this).MonthPicker(
                 {
                     'MonthFormat': 'mm/yy',
@@ -475,7 +520,7 @@ jQuery(document).ready(function()
                     OnAfterChooseMonth: function( selectedDate ){
                         console.log(jQuery(this).attr('id'));
                         console.log(jQuery(jQuery(this).attr('pop')).val());
-                        bnlSetCookie(jQuery(this).attr('pop'),jQuery(jQuery(this).attr('pop')).val(),100);
+                        bnl_check_date_selection(jQuery(this).attr('pop'));
                         },
                     OnAfterMenuOpen: function(){
                         jQuery('#MonthPicker_'+tid).detach().appendTo(widget);
@@ -483,24 +528,41 @@ jQuery(document).ready(function()
                         jQuery('#MonthPicker_'+tid).css('top','');
                         jQuery('#MonthPicker_'+tid).css('left','');
                         jQuery('#MonthPicker_'+tid).css('z-index','0');
-                        // jQuery("#date_from").val(jQuery("#data_date_end").html());
-                        // jQuery("#date_to").val(jQuery("#data_date_end").html());
                         }
                 })
                 .click()
                 .hide();
             });
-            
-            var startDate = bnlGetCookie('bnl_start_date');
-            var endDate = bnlGetCookie('bnl_end_date');
-            if(startDate && endDate)
-            {
-                // jQuery("#daterange").data('daterangepicker').setStartDate(startDate);
-                // jQuery("#daterange").data('daterangepicker').setEndDate(endDate);
-                // jQuery("#daterange").val(moment(startDate, 'MM/DD/YYYY').format('MM/YYYY') + " - " + moment(endDate, 'MM/DD/YYYY').format('MM/YYYY'));
-            }
+            checkGetable();
         }
         
+        function bnl_check_date_selection(changed_dom)
+        {
+            var changed_value = moment(jQuery(changed_dom).val(), 'MM/YYYY');
+            console.log("Changed val: " + changed_value);
+            var opposite = '';
+            if(changed_dom.length > 0 && changed_dom.match(/from/) !== null)
+            {
+                opposite = moment(jQuery('#date_to').val(), 'MM/YYYY');
+                if(opposite < changed_value)
+                {
+                    jQuery('#date_to').val(jQuery(changed_dom).val());
+                    bnlSetCookie( '#date_to', jQuery(changed_dom).val(), 100 );
+                }
+            }
+            else
+            {
+                opposite = moment(jQuery('#date_from').val(), 'MM/YYYY');
+                if(opposite > changed_value)
+                {
+                    jQuery('#date_from').val(jQuery(changed_dom).val());
+                    bnlSetCookie( '#date_from', jQuery(changed_dom).val(), 100 );
+                }
+            }
+            bnlSetCookie( changed_dom, jQuery(changed_dom).val(), 100 );
+            checkGetable();
+        }
+
         function bnl_create_csv_download_link(title, bnl_table_dom)
         {
             var ret = "<div class = 'bnl_csv_download_link' table_dom = '"+bnl_table_dom+"' title = '"+title+"'>" +
@@ -581,22 +643,27 @@ jQuery(document).ready(function()
             
             for(var drop_type in dropdown_vals)
             {
-                var tdom = type+"_"+dropdown_vals[drop_type]['chooser'];
-                if(empty)
+                if(drop_type != 'branch_basic') // leave the basic search dropdown alone please
                 {
-                    jQuery(tdom + "_chosen > input").prop("disabled","false");
-                    jQuery(tdom + "_chosen > ul").css("display","");
-                    jQuery(tdom + "_chosen").css("background-color","");
-                    jQuery(tdom + "_chosen").css("height","");
-                }
-                else
-                {
-                    if(tdom != dom)
+                    var tdom = type+"_"+dropdown_vals[drop_type]['chooser'];
+                    if(empty)
                     {
-                        jQuery(tdom + "_chosen > input").prop("disabled","true");
-                        jQuery(tdom + "_chosen > ul").css("display","none");
-                        jQuery(tdom + "_chosen").css("background-color","grey");
-                        jQuery(tdom + "_chosen").css("height","20px");
+                        jQuery(tdom + "_chosen > input").prop("disabled","false");
+                        jQuery(tdom + "_chosen > ul").css("display","");
+                        jQuery(tdom + "_chosen").css("background-color","");
+                        jQuery(tdom + "_chosen").css("height","");
+                        jQuery(tdom + "_chosen").parent().children(".dropdown_menu_overlay").remove();
+                    }
+                    else
+                    {
+                        if(tdom != dom)
+                        {
+                            jQuery(tdom + "_chosen > input").prop("disabled","true");
+                            jQuery(tdom + "_chosen > ul").css("display","none");
+                            jQuery(tdom + "_chosen").css("background-color","grey");
+                            jQuery(tdom + "_chosen").css("height","0px");
+                            jQuery(tdom + "_chosen").parent().prepend("<div class='dropdown_menu_overlay'></div>");
+                        }
                     }
                 }
             }

@@ -19,6 +19,7 @@
 
 #date_range_title {
     width: 100%;
+    font-size: 16pt;
 }
 
 .date_dropdown_wrapper {
@@ -43,6 +44,13 @@
     color: #0099A8;
     width: 100%;
     border: 0px;
+}
+
+.dropdown_menu_overlay {
+    width: 100%;
+    z-index: 9999;
+    background-color: grey;
+    height: 30px;
 }
 
 /* Date picker overrides */
@@ -137,6 +145,10 @@
     text-align: center;
 }
 
+.bnl_basic_filter_container > .bnl_title_container {
+    border-bottom: none;
+}
+
 .bnl_dropdown {
     width: 100%;
     text-align: left;
@@ -198,34 +210,6 @@
     background-color: gray !important;
 }
 
-.data_date_range {
-    color: #078000;
-    font-size: 12pt;
-    width: 100%;
-}
-
-.data_date_range > .date_range {
-    color: #991842;
-    font-size: 17pt;
-    padding: 1em;
-}
-
-#bnl_branch_div {
-    
-}
-
-#bnl_summary_divs {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-content: flex-start;
-}
-
-.summary_div {
-    width: 48%;
-    padding: 0em 1em;
-}
-
 .bnl-download-icon {
     float: left;
     margin: -2px 7px 0px 25px;
@@ -277,10 +261,6 @@
 @media only screen and (max-width: 1150px) {
     
     .bnl_advanced_filter_container {
-        width: 98%;
-    }
-
-    .summary_div {
         width: 98%;
     }
 

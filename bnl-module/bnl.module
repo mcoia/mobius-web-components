@@ -36,30 +36,7 @@ function mobius_bnl_display()
     <span id="mobius_bnl_page_is_loaded"></span>
     <div id="bnl_panel">
     <div id="bnl_filter_select_master_container">
-
-        <div id="bnl_date_div">
-            <div id="date_range_title">Date Range</div>
-            <div class="date_dropdown_wrapper">
-                <label for="date_from">From</label>
-                <input class="chosen_date_display" id="date_from"></input>
-                <input class="date_dropdown" id="date_from_d" pop="#date_from" widget="#date_from_widget" type="text" />
-                <div class="date_widget" id="date_from_widget"></div>
-            </div>
-            <div class="date_dropdown_wrapper">
-                <label for="date_to">To</label>
-                <input class="chosen_date_display" id="date_to"></input>
-                <input class="date_dropdown" id="date_to_d" pop="#date_to" widget="#date_to_widget" type="text" />
-                <div class="date_widget" id="date_to_widget"></div>
-            </div>
-            <div class="data_date_range">
-                Database currently contains data between <span class="date_range" id="data_date_start"></span> and <span class="date_range" id="data_date_end"></span>
-            </div>
-        </div> <!-- bnl_date_div -->
-
-        <div class="bnl_filter_switcher_container">
-            <a id="filter_switcher_button">Show <span id="filter_switcher_word">Advanced</span> filters</a>
-        </div> <!-- bnl_basic_filter_container -->
-
+        
         <div class="bnl_basic_filter_container">
         <div class="bnl_title_container">Library Selection</div>
             <div class="bnl_dropdown_wrapper">
@@ -67,6 +44,10 @@ function mobius_bnl_display()
                 </div>
                 LIBRARY
             </div>
+        </div> <!-- bnl_basic_filter_container -->
+
+        <div class="bnl_filter_switcher_container">
+            <a id="filter_switcher_button">Show <span id="filter_switcher_word">Advanced</span> filters</a>
         </div> <!-- bnl_basic_filter_container -->
 
         <div class="bnl_advanced_filter_container hide">
@@ -110,17 +91,34 @@ function mobius_bnl_display()
         <div class="bnl_advanced_filter_container hide">
             <input type="checkbox" name="show-zeros" id="show_zeros"></input><label id="show_zeros_label" for="show_zeros">Show Zeros</label>
         </div> <!-- bnl_advanced_filter_container -->
+
+        <div id="bnl_date_div">
+            <div id="date_range_title">Date Range</div>
+            <div class="date_dropdown_wrapper">
+                <label for="date_from">From</label>
+                <input class="chosen_date_display" id="date_from"></input>
+                <input class="date_dropdown" id="date_from_d" pop="#date_from" widget="#date_from_widget" type="text" />
+                <div class="date_widget" id="date_from_widget"></div>
+            </div>
+            <div class="date_dropdown_wrapper">
+                <label for="date_to">To</label>
+                <input class="chosen_date_display" id="date_to"></input>
+                <input class="date_dropdown" id="date_to_d" pop="#date_to" widget="#date_to_widget" type="text" />
+                <div class="date_widget" id="date_to_widget"></div>
+            </div>
+        </div> <!-- bnl_date_div -->
     
     <div id="bnl_submit_container"><div id="bnl_submit_button">Get Results!</div></div>
     
     </div> <!-- bnl_filter_select_master_container -->
     <div id="bnl_data_tables">
-    <div id="bnl_summary_divs">
-    <div id="bnl_owning_summary_div_container" class="summary_div"> <div id="bnl_owning_summary_div"></div>   </div>
-    <div id="bnl_borrowing_summary_div_container" class="summary_div"> <div id="bnl_borrowing_summary_div"></div>   </div>
-    </div>
-    <div id="bnl_branch_div"></div>
-    <div id="bnl_cluster_div"></div>
+
+        <div id="bnl_my_lending_div"></div>
+
+        <div id="bnl_my_borrowing_div"></div>
+
+        <div id="bnl_lib_to_lib_div"></div>
+
     </div>
     <div id="bnl_pie"></div>
     
@@ -282,7 +280,7 @@ function mobius_bnl_postback()
             'borrowing_cluster_ids.cid' => $clusters['borrowing']
         );
 
-        mobius_bnl_get_bnl_base($data_array, $_GET['startdate'], $_GET['enddate'], $branchArray, $_GET['datesummary']);
+        mobius_bnl_get_bnl_base($data_array, $_GET['startdate'], $_GET['enddate'], $branchArray);
 
         echo $data_array = drupal_json_encode($data_array);
     }
@@ -368,13 +366,11 @@ function mobius_bnl_get_all_branches(&$data_array)
     }
 }
 
-function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSelections, $summary)
+function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSelections)
 {
-    if(!$summary)
-    {
-        $data_array["amount_branch"] = array();
-        $data_array["amount_cluster"] = array();
-    }
+    
+    $data_array["amount_branch"] = array();
+    $data_array["amount_cluster"] = array();
 
     $gotmore = 1;
     $offset = 0;
@@ -384,25 +380,17 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
     {
         $columns = "";
         $vals = array($startDate, $endDate);
-        if($summary)
-        {
-            $columns = "
-               SELECT
-               'lent' as \"type\",
-           bnl_owning_name.id \"branch_id\",
+        
+        $columns = "
+           SELECT
+           'lent' as \"type\",
            bnl.borrow_date \"borrow_date\",
-           sum(bnl.quantity) \"quantity\"";
-        }
-        else
-        {
-            $columns = "
-               SELECT
            bnl_borrowing_name.name \"borrowing_branch_name\", bnl_borrowing_name.id \"borrowing_branch_id\",
            bnl_owning_name.name \"owning_branch_name\", bnl_owning_name.id \"owning_branch_id\",
            (select min(cid) from mobius_bnl_branch_connection_map where fid=bnl_borrowing_branch.final_branch) \"borrowing_cluster_id\",
            (select min(cid) from mobius_bnl_branch_connection_map where fid=bnl_owning_branch.final_branch) \"owning_cluster_id\",
            sum(bnl.quantity) \"quantity\"";
-        }
+    
         $fromClauseStart = "
             FROM 
             mobius_bnl_bnl bnl,
@@ -420,25 +408,25 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
             ";
 
         $fromClause = mobius_bnl_get_bnl_base_branches_from_clause($fromClauseStart, $vals, $branchSelections, 0);
-        $groupClause = ($summary ? " group by 1,2,3" : " group by 1,2,3,4,5,6");
+        $groupClause = " group by 1,2,3,4,5,6,7,8";
         
         $query = $columns.$fromClause.$groupClause;
-        
-        if($summary) // We have to reverse and get the borrowing summary at the same time
-        {
-            $query .= "
-            UNION ALL
-            
-            SELECT
-               'borrow' as \"type\",
-           bnl_borrowing_name.id \"branch_id\",
+
+        $query .= "
+        UNION ALL
+
+        SELECT
+           'borrow' as \"type\",
            bnl.borrow_date \"borrow_date\",
+           bnl_borrowing_name.name \"borrowing_branch_name\", bnl_borrowing_name.id \"borrowing_branch_id\",
+           bnl_owning_name.name \"owning_branch_name\", bnl_owning_name.id \"owning_branch_id\",
+           (select min(cid) from mobius_bnl_branch_connection_map where fid=bnl_borrowing_branch.final_branch) \"borrowing_cluster_id\",
+           (select min(cid) from mobius_bnl_branch_connection_map where fid=bnl_owning_branch.final_branch) \"owning_cluster_id\",
            sum(bnl.quantity) \"quantity\"";
-           $vals[] = $startDate;
-           $vals[] = $endDate;
-           $fromClause = mobius_bnl_get_bnl_base_branches_from_clause($fromClauseStart, $vals, $branchSelections, 1);
-           $query .= $fromClause.$groupClause;
-        }
+       $vals[] = $startDate;
+       $vals[] = $endDate;
+       $fromClause = mobius_bnl_get_bnl_base_branches_from_clause($fromClauseStart, $vals, $branchSelections, 1);
+       $query .= $fromClause.$groupClause;
         
         $query .= "
             limit $chunk
@@ -450,48 +438,39 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
         $result = db_query($query,$vals);
         while($libraryRow = $result->fetchAssoc())
         {
-            if($summary)
+            if(!$data_array[$libraryRow["type"]])
             {
-                if(!$data_array[$libraryRow["type"]])
-                {
-                    $data_array[$libraryRow["type"]] = array();
-                }
-                if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]])
-                {
-                    $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]] = array();
-                }
-                if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["branch_id"]])
-                {
-                    $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["branch_id"]] = ($libraryRow["quantity"] + 0);
-                }
-                else
-                {
-                    $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["branch_id"]] += ($libraryRow["quantity"] + 0);
-                }
+                $data_array[$libraryRow["type"]] = array();
+            }
+            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]])
+            {
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]] = array();
+            }
+            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]])
+            {
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]] = array();
+            }
+            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]][$libraryRow["owning_branch_id"]])
+            {
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]][$libraryRow["owning_branch_id"]] = ($libraryRow["quantity"] + 0);
             }
             else
             {
-                // Stuff the meat of the data
-                if(!$data_array["amount_branch"][$libraryRow["borrowing_branch_id"]])
-                {
-                    $data_array["amount_branch"][$libraryRow["borrowing_branch_id"]] = array();
-                }
-                $data_array["amount_branch"][$libraryRow["borrowing_branch_id"]][$libraryRow["owning_branch_id"]] = ($libraryRow["quantity"] + 0);
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]][$libraryRow["owning_branch_id"]] += ($libraryRow["quantity"] + 0);
+            }
 
-
-                // Add up totals for each whole cluster
-                if(!$data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]])
-                {
-                    $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]] = array();
-                }
-                if(!$data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]])
-                {
-                    $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]] = ($libraryRow["quantity"] + 0);
-                }
-                else
-                {
-                    $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]] += ($libraryRow["quantity"] + 0);
-                }
+            // Add up totals for each whole cluster
+            if(!$data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]])
+            {
+                $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]] = array();
+            }
+            if(!$data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]])
+            {
+                $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]] = ($libraryRow["quantity"] + 0);
+            }
+            else
+            {
+                $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]] += ($libraryRow["quantity"] + 0);
             }
         }
         
@@ -532,7 +511,7 @@ function mobius_bnl_get_bnl_base_branches_from_clause($fromClause, &$vals, $bran
                 if(is_numeric($id)) // only digits allowed here
                 {
                     $something = 1;
-                    if(preg_match("/cluster/", $key)) // Clusters are handle differently
+                    if(preg_match("/cluster/", $key)) // Clusters are handled differently
                     {
                         $collection.="$id,";
                     }
@@ -543,7 +522,7 @@ function mobius_bnl_get_bnl_base_branches_from_clause($fromClause, &$vals, $bran
                     }
                 }
             }
-            if(preg_match("/cluster/", $key)) // Clusters are handle differently
+            if(preg_match("/cluster/", $key)) // Clusters are handled differently
             {
                 $collection = substr($collection,0,-1); // chop off the last ,
                 $type = ( preg_match("/owning/", $key) ? "owning" : "borrowing");
