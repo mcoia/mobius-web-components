@@ -71,7 +71,7 @@ jQuery(document).ready(function()
         }
 
         function bnlGetCookie(cname) {
-            var name = cname + "=";
+            var name = "bnl_" + cname + "=";
             var ca = document.cookie.split(';');
             for(var i=0; i<ca.length; i++) {
                 var c = ca[i];
@@ -86,7 +86,7 @@ jQuery(document).ready(function()
             var d = new Date();
             d.setTime(d.getTime() + (exdays*24*60*60*1000));
             var expires = "expires="+d.toUTCString();
-            var finalc = cname + "="
+            var finalc = "bnl_" + cname + "="
             + cvalue
             + "; " + expires
             + "; path=/";
@@ -216,8 +216,8 @@ jQuery(document).ready(function()
         function bnl_generate_data(lib_to_lib_dom, my_lending_dom, my_borrowing_dom, dropdown_vals)
         {
             var includeZeros = jQuery("#show_zeros").is(':checked');
-            var startDate = bnlGetCookie('date_from');
-            var endDate = bnlGetCookie('date_to');
+            var startDate = bnlGetCookie('#date_from');
+            var endDate = bnlGetCookie('#date_to');
             if(startDate && endDate)
             {
                 startDate = moment(startDate, 'MM/YYYY').format('YYYY-MM');
@@ -241,7 +241,8 @@ jQuery(document).ready(function()
                     lent: {
                             dom: my_lending_dom,
                             table_dom: 'bnl_my_lending_table',
-                            th_lib_head: 'Lending Library',
+                            th_plib_head: 'Lending Library',
+                            th_slib_head: 'Borrowing Library',
                             th_total_head: 'Lent Total',
                             table_h1: 'Lending Summary',
                             total: {},
@@ -250,7 +251,8 @@ jQuery(document).ready(function()
                     borrow: {
                             dom: my_borrowing_dom,
                             table_dom: 'bnl_borrowing_summary_table',
-                            th_lib_head: 'Borrowing Library',
+                            th_plib_head: 'Borrowing Library',
+                            th_slib_head: 'Lending Library',
                             th_total_head: 'Borrow Total',
                             table_h1: 'Borrowing Summary',
                             total: {},
@@ -266,7 +268,92 @@ jQuery(document).ready(function()
                 {
                     if(data[type])
                     {
-                        types[type]['html'] = "<table id = '"+types[type]['table_dom']+"'><thead><tr><th>"+types[type]['th_lib_head']+"</th><th>Month</th><th>"+types[type]['th_total_head']+"</th></tr></thead><tbody>";
+                        // Figure out the full set of month column slots
+                        var months = bnl_dedupe_array(data[type]);
+                        // Figure out the full set of systems column slots
+                        var systems = bnl_dedupe_array(branch_obj['branch_to_system'], 1);
+                        // Figure out the full set of primary library branches
+                        var plibs = bnl_dedupe_array(data[type], 1);
+                        // figure out the complete list of secondary libs for each plib (cutting through all months)
+                        var slibs = {};
+                        for(var plib_pos in plibs)
+                        {
+                            var plib = plibs[plib_pos];
+                            for(var month_pos in months)
+                            {
+                                var month = months[month_pos];
+                                var l_dedupe = {};
+                                for(var slib in data[type][month][plib])
+                                {
+                                    l_dedupe[slib] = 1;
+                                }
+                            }
+                            slibs[plib] = []
+                            for(var slib in l_dedupe)
+                            {
+                                slibs[plib].push(slib);
+                            }
+                        }
+                        // initialize a variable to hold the totals
+                        var libGrandTotals = {};
+                        if(months.length > 0 && systems.length > 0)
+                        {
+                            types[type]['html'] = "<table id = '"+types[type]['table_dom']+"'><thead><tr><th>"+types[type]['th_plib_head']+"</th><th>Consortium</th><th>"+types[type]['th_slib_head']+"</th><th>"+types[type]['th_total_head']+"</th>";
+                            for(var month in months)
+                            {
+                                types[type]['html'] += "<th>" + month + "</th>";
+                            }
+                            types[type]['html'] += "</tr></thead><tbody>";
+                            for(var lib_order in branch_obj['branch_order']) // make sure we follow the alphabet
+                            {
+                                for(var plib_pos in plibs)
+                                {
+                                    var plib = plibs[plib_pos];
+                                    if(branch_obj['branch_order'][lib_order] == plib) // matching in order
+                                    {
+                                        for(var system_pos in systems)
+                                        {
+                                            var system = systems[system_pos];
+                                            for(var slib_order in branch_obj['branch_order']) // make sure we follow the alphabet
+                                            {
+                                                for(var slib_pos in slibs[plib])
+                                                {
+                                                    var slib = slibs[plib][slib_pos];
+                                                    if( (branch_obj['branch_order'][slib_order] == slib) && (branch_obj['branch_to_system'][slib] == system) )// matching in order and that we are in the right system
+                                                    {
+                                                        if(!libGrandTotals[plib])
+                                                        {
+                                                            libGrandTotals[plib] = {};
+                                                        }
+                                                        if(!libGrandTotals[plib][system])
+                                                        {
+                                                            libGrandTotals[plib][system] = 0;
+                                                        }
+                                                        var monthTotals = {};
+                                                        for(var month_pos in months)
+                                                        {
+                                                            var month = months[month_pos];
+                                                            if(data[type][month][plib][slib])
+                                                            {
+                                                                monthTotals[month] = data[type][month][plib][slib];
+                                                                libGrandTotals[plib][system] += data[type][month][plib][slib];
+                                                            }
+                                                            else
+                                                            {
+                                                                monthTotals[month] = 0;
+                                                            }
+                                                        }
+                                                        types[type]['html'] = addHTMLRow_my_tables(type, branch_obj['branch'][plib], date, data[type][date][lib], types[type]['html']);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        
                         for (var date in data[type])
                         {
                             for (var lib in data[type][date])
@@ -293,96 +380,54 @@ jQuery(document).ready(function()
                 }
             });
         }
-
-        function bnl_generate_branch_and_cluster_tables(lib_to_lib_dom, cluster_dom, dropdown_vals, includeZeros, startDate, endDate) // preserved just in case we want to put the cluster table back in
+        
+        function bnl_dedupe_array(a_array, inner = 0)
         {
-            var branch_table_html = "";
-            var cluster_table_html = "";
-            jQuery(lib_to_lib_dom).html(' ');
-            jQuery(lib_to_lib_dom).addClass('loader');
-            jQuery(cluster_dom).html(' ');
-            jQuery(cluster_dom).addClass('loader');
-            
-            var qstring = getMultiSelectOptionsForQueryString(dropdown_vals);
-            console.log("Gathering from borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring);
-            jQuery.get("borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring, function(data)
+            var dedupe = {};
+            var ret = [];
+            for (var d in a_array)
             {
-                var selections = getMultiSelectOptions(dropdown_vals);
-                if(data['amount_branch'])
+                var v = d;
+                if(inner)
                 {
-                    var used = 
+                    if(typeof(a_array[d]) == 'object') // only going one more level and that's enough please
                     {
-                        owning: {},
-                        borrowing: {}
-                    }
-                    branch_table_html = "<table id = 'bnl_branch_table'><thead><tr><th>Lending Library</th><th>Borrowing Library</th><th>Amount</th></tr></thead><tbody>";
-                    for (var borrow_id in data['amount_branch'])
-                    {
-                        used['borrowing'][borrow_id] = 1;
-                        for (var owning_id in data['amount_branch'][borrow_id])
+                        for (var c in a_array[d])
                         {
-                            used['owning'][owning_id] = 1;
-                            branch_table_html = addHTMLRow('branch', branch_obj['branch'][owning_id], branch_obj['branch'][borrow_id], data['amount_branch'][borrow_id][owning_id], branch_table_html);
-                        }
-                        if(includeZeros)
-                        {
-                            for (var id_pos in selections['owning'])
-                            {
-                                if(!used['owning'][selections['owning'][id_pos]])
-                                {
-                                    // Need to introduce a "0" amount for non-present
-                                    branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos]], branch_obj['branch'][borrow_id], '0', branch_table_html);
-                                }
-                            }
+                            v = c;
                         }
                     }
-                    if(includeZeros)
-                    {
-                        for (var id_pos in selections['borrowing'])
-                        {
-                            if(!used['borrowing'][selections['borrowing'][id_pos]])
-                            {
-                                for(var id_pos_owning in selections['owning'])
-                                {   
-                                    // Need to introduce a "0" amount for non-present
-                                    branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos_owning]], branch_obj['branch'][selections['borrowing'][id_pos]], '0', branch_table_html);
-                                }
-                            }
-                        }
+                    else
+                    {                        
+                        v = a_array[d];
                     }
-                    branch_table_html += "</tbody></table>";
                 }
-                if(data['amount_cluster'])
+                if(!dedupe[v])
                 {
-                    cluster_table_html = "<table id = 'bnl_cluster_table'><thead><tr><th>Lending Cluster</th><th>Borrowing Cluster</th><th>Amount</th></tr></thead><tbody>";
-                    for (var borrow_id in data['amount_cluster'])
-                    {
-                        for (var owning_id in data['amount_cluster'][borrow_id])
-                        {
-                            cluster_table_html = addHTMLRow('cluster', branch_obj['cluster'][owning_id]['name'], branch_obj['cluster'][borrow_id]['name'], data['amount_cluster'][borrow_id][owning_id], cluster_table_html);
-                        }
-                    }
-                    cluster_table_html += "</tbody></table>";
+                    dedupe[v] = 1;
                 }
-
-            }).done(function(){
-                console.log("Finished loading branch_table");
-                jQuery(lib_to_lib_dom).removeClass('loader');
-                jQuery(lib_to_lib_dom).html(
-                    "<h1>Library to Library</h1>"+
-                    bnl_create_csv_download_link("Branch to Branch","bnl_branch_table")+
-                    branch_table_html
-                );
-                bnl_wire("#bnl_branch_table");
-                
-                jQuery(cluster_dom).removeClass('loader');
-                jQuery(cluster_dom).html(
-                    "<h1>Cluster to Cluster</h1>"+
-                    bnl_create_csv_download_link("Cluster to Cluster","bnl_cluster_table")+
-                    cluster_table_html
-                );
-                bnl_wire("#bnl_cluster_table");
-            });
+            }
+            for(var d in dedupe)
+            {
+                ret.push(d);
+            }
+            ret.sort();
+            return ret;
+        }
+        
+        function addHTMLRow_my_tables(type, primaryBranchName, systemName, secondaryBranchName, monthTotalArray, HTML, showMonths = 1)
+        {
+            var total = 0;
+            for(var month in monthTotalArray)
+            {
+                total+=monthTotalArray[month];
+            }
+            HTML += "<tr>";
+            HTML += "<td class='bnl_branch_table_"+type+"_owning_lib'>"+owningBranchName+"</td>\n";
+            HTML += "<td class='bnl_branch_table_borrowing_lib'>"+borrowingBranchName+"</td>\n";
+            HTML += "<td class='bnl_branch_table_borrowing_lib'>"+amount+"</td>\n";
+            HTML += "</tr>";
+            return HTML;
         }
         
         function addHTMLRow(type, owningBranchName, borrowingBranchName, amount, HTML)
@@ -506,7 +551,7 @@ jQuery(document).ready(function()
                 var oldest_months_back = oldest_date.diff(moment(),'months');
                 var newest_date = moment(data['date_end'],'MM/YYYY');
                 var newest_months_back = newest_date.diff(moment(),'months');
-                bnlSetCookie( jQuery(this).attr('pop')+"", newest_months_back, 100 );
+                bnlSetCookie( "" + jQuery(this).attr('pop'), "" + newest_date.format('MM/YYYY'), 100 );
                 jQuery(this).MonthPicker(
                 {
                     'MonthFormat': 'mm/yy',
@@ -701,6 +746,97 @@ jQuery(document).ready(function()
                 jQuery(".bnl_basic_filter_container").removeClass("hide");
                 jQuery("#filter_switcher_word").html("Advanced");
             }
+        }
+
+        function bnl_generate_branch_and_cluster_tables(lib_to_lib_dom, cluster_dom, dropdown_vals, includeZeros, startDate, endDate) // preserved just in case we want to put the cluster table back in
+        {
+            var branch_table_html = "";
+            var cluster_table_html = "";
+            jQuery(lib_to_lib_dom).html(' ');
+            jQuery(lib_to_lib_dom).addClass('loader');
+            jQuery(cluster_dom).html(' ');
+            jQuery(cluster_dom).addClass('loader');
+            
+            var qstring = getMultiSelectOptionsForQueryString(dropdown_vals);
+            console.log("Gathering from borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring);
+            jQuery.get("borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring, function(data)
+            {
+                var selections = getMultiSelectOptions(dropdown_vals);
+                if(data['amount_branch'])
+                {
+                    var used = 
+                    {
+                        owning: {},
+                        borrowing: {}
+                    }
+                    branch_table_html = "<table id = 'bnl_branch_table'><thead><tr><th>Lending Library</th><th>Borrowing Library</th><th>Amount</th></tr></thead><tbody>";
+                    for (var borrow_id in data['amount_branch'])
+                    {
+                        used['borrowing'][borrow_id] = 1;
+                        for (var owning_id in data['amount_branch'][borrow_id])
+                        {
+                            used['owning'][owning_id] = 1;
+                            branch_table_html = addHTMLRow('branch', branch_obj['branch'][owning_id], branch_obj['branch'][borrow_id], data['amount_branch'][borrow_id][owning_id], branch_table_html);
+                        }
+                        if(includeZeros)
+                        {
+                            for (var id_pos in selections['owning'])
+                            {
+                                if(!used['owning'][selections['owning'][id_pos]])
+                                {
+                                    // Need to introduce a "0" amount for non-present
+                                    branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos]], branch_obj['branch'][borrow_id], '0', branch_table_html);
+                                }
+                            }
+                        }
+                    }
+                    if(includeZeros)
+                    {
+                        for (var id_pos in selections['borrowing'])
+                        {
+                            if(!used['borrowing'][selections['borrowing'][id_pos]])
+                            {
+                                for(var id_pos_owning in selections['owning'])
+                                {   
+                                    // Need to introduce a "0" amount for non-present
+                                    branch_table_html = addHTMLRow('branch', branch_obj['branch'][selections['owning'][id_pos_owning]], branch_obj['branch'][selections['borrowing'][id_pos]], '0', branch_table_html);
+                                }
+                            }
+                        }
+                    }
+                    branch_table_html += "</tbody></table>";
+                }
+                if(data['amount_cluster'])
+                {
+                    cluster_table_html = "<table id = 'bnl_cluster_table'><thead><tr><th>Lending Cluster</th><th>Borrowing Cluster</th><th>Amount</th></tr></thead><tbody>";
+                    for (var borrow_id in data['amount_cluster'])
+                    {
+                        for (var owning_id in data['amount_cluster'][borrow_id])
+                        {
+                            cluster_table_html = addHTMLRow('cluster', branch_obj['cluster'][owning_id]['name'], branch_obj['cluster'][borrow_id]['name'], data['amount_cluster'][borrow_id][owning_id], cluster_table_html);
+                        }
+                    }
+                    cluster_table_html += "</tbody></table>";
+                }
+
+            }).done(function(){
+                console.log("Finished loading branch_table");
+                jQuery(lib_to_lib_dom).removeClass('loader');
+                jQuery(lib_to_lib_dom).html(
+                    "<h1>Library to Library</h1>"+
+                    bnl_create_csv_download_link("Branch to Branch","bnl_branch_table")+
+                    branch_table_html
+                );
+                bnl_wire("#bnl_branch_table");
+                
+                jQuery(cluster_dom).removeClass('loader');
+                jQuery(cluster_dom).html(
+                    "<h1>Cluster to Cluster</h1>"+
+                    bnl_create_csv_download_link("Cluster to Cluster","bnl_cluster_table")+
+                    cluster_table_html
+                );
+                bnl_wire("#bnl_cluster_table");
+            });
         }
     }
     
