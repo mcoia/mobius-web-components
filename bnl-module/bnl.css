@@ -33,9 +33,7 @@
 }
 
 .date_dropdown {
-    width: 1px;
-    height: 1px;
-    /* display: none; */
+    
 }
 
 .chosen_date_display {
@@ -210,6 +208,10 @@
     background-color: gray !important;
 }
 
+.sort {
+    display: none;
+}
+
 .bnl-download-icon {
     float: left;
     margin: -2px 7px 0px 25px;
@@ -221,6 +223,12 @@
     margin-bottom: 2em;
     cursor: pointer;
     color: #078000;
+}
+
+.table_warning {
+    color: red;
+    font-size: 16pt;
+    font-weight: bold;
 }
 
 #instructions_show_hide {

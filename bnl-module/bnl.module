@@ -97,14 +97,12 @@ function mobius_bnl_display()
             <div class="date_dropdown_wrapper">
                 <label for="date_from">From</label>
                 <input class="chosen_date_display" id="date_from"></input>
-                <input class="date_dropdown" id="date_from_d" pop="#date_from" widget="#date_from_widget" type="text" />
-                <div class="date_widget" id="date_from_widget"></div>
+                <div class="date_dropdown" id="date_from_d" pop="#date_from"></div>
             </div>
             <div class="date_dropdown_wrapper">
                 <label for="date_to">To</label>
                 <input class="chosen_date_display" id="date_to"></input>
-                <input class="date_dropdown" id="date_to_d" pop="#date_to" widget="#date_to_widget" type="text" />
-                <div class="date_widget" id="date_to_widget"></div>
+                <div class="date_dropdown" id="date_to_d" pop="#date_to"></div>
             </div>
         </div> <!-- bnl_date_div -->
     
@@ -434,10 +432,17 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
 // echo preg_replace('/\n/','<br>',$query);
 // print_r($vals);
 // exit;
-        
+        $bnl_def = 
+        [
+            "lent" => [ "inner" =>"borrowing_branch_id", "outter" => "owning_branch_id"],
+            "borrow" => [ "inner" =>"owning_branch_id", "outter" => "borrowing_branch_id"]
+        ];
         $result = db_query($query,$vals);
         while($libraryRow = $result->fetchAssoc())
         {
+            $outter = $libraryRow[$bnl_def[$libraryRow["type"]]["outter"]];
+            $inner = $libraryRow[$bnl_def[$libraryRow["type"]]["inner"]];
+
             if(!$data_array[$libraryRow["type"]])
             {
                 $data_array[$libraryRow["type"]] = array();
@@ -446,17 +451,17 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
             {
                 $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]] = array();
             }
-            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]])
+            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$outter])
             {
-                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]] = array();
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$outter] = array();
             }
-            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]][$libraryRow["owning_branch_id"]])
+            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$outter][$inner])
             {
-                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]][$libraryRow["owning_branch_id"]] = ($libraryRow["quantity"] + 0);
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$outter][$inner] = ($libraryRow["quantity"] + 0);
             }
             else
             {
-                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["borrowing_branch_id"]][$libraryRow["owning_branch_id"]] += ($libraryRow["quantity"] + 0);
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$outter][$inner] += ($libraryRow["quantity"] + 0);
             }
 
             // Add up totals for each whole cluster
@@ -472,6 +477,9 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
             {
                 $data_array["amount_cluster"][$libraryRow["borrowing_cluster_id"]][$libraryRow["owning_cluster_id"]] += ($libraryRow["quantity"] + 0);
             }
+
+            unset($outter);
+            unset($inner);
         }
         
         $gotmore = $result->rowCount();
