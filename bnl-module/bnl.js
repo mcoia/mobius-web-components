@@ -61,7 +61,14 @@ jQuery(document).ready(function()
             {
                 jQuery("#bnl_submit_button").removeClass('bnl_submit_not_allowed');
                 jQuery('#bnl_submit_button').click(function(){
-                    bnl_generate_data('#bnl_lib_to_lib_div', '#bnl_my_lending_div', '#bnl_my_borrowing_div', dropdown_vals);
+                    bnl_generate_data(
+                        '#bnl_lib_to_lib_div',
+                        '#bnl_my_lending_div',
+                        '#bnl_my_borrowing_div',
+                        '#bnl_my_lending_percentage_div',
+                        '#bnl_my_borrowing_percentage_div',
+                        dropdown_vals
+                    );
                 });
             }
             else
@@ -215,7 +222,7 @@ jQuery(document).ready(function()
             jQuery("#instructions_show_hide_a").click(function(){ bnl_show_hide();});
         }
 
-        function bnl_generate_data(lib_to_lib_dom, my_lending_dom, my_borrowing_dom, dropdown_vals)
+        function bnl_generate_data(lib_to_lib_dom, my_lending_dom, my_borrowing_dom, percent_lending_dom, percent_borrowing_dom, dropdown_vals)
         {
             var includeZeros = jQuery("#show_zeros").is(':checked');
             var startDate = bnlGetCookie('#date_from');
@@ -224,14 +231,26 @@ jQuery(document).ready(function()
             {
                 startDate = moment(startDate, 'MM/YYYY').format('YYYY-MM');
                 endDate = moment(endDate, 'MM/YYYY').format('YYYY-MM');
-                bnl_generate_tables(lib_to_lib_dom, my_lending_dom, my_borrowing_dom, dropdown_vals, startDate, endDate)
+                bnl_generate_tables(
+                    lib_to_lib_dom,
+                    my_lending_dom,
+                    my_borrowing_dom,
+                    dropdown_vals,
+                    startDate,
+                    endDate
+                );
+                bnl_generate_tables_percent(
+                    percent_lending_dom,
+                    percent_borrowing_dom,
+                    dropdown_vals,
+                    startDate,
+                    endDate
+                );
             }
         }
 
         function bnl_generate_tables(lib_to_lib_dom, my_lending_dom, my_borrowing_dom, dropdown_vals, startDate, endDate)
         {
-            var owning_table_html = "";
-            var borrowing_table_html = "";
             jQuery(my_lending_dom).html(' ');
             jQuery(my_lending_dom).addClass('loader');
             jQuery(my_borrowing_dom).html(' ');
@@ -473,8 +492,8 @@ jQuery(document).ready(function()
                     jQuery(types[type]['dom']).removeClass('loader');
                     var thishtml = 
                         "<h1>"+types[type]['table_h1']+"</h1>"+
-                        bnl_create_csv_download_link(types[type]['table_h1'],types[type]['table_dom'])+
                         types[type]['html'] +
+                        bnl_create_csv_download_link(types[type]['table_h1'],types[type]['table_dom'])+
                         "<h2>Total: "+types[type]['total']+"</h2>";
                     jQuery(types[type]['dom']).html(thishtml);
                     bnl_wire("#"+types[type]['table_dom'],[[1,'asc'],[0,'asc'],[2,'asc']], 6); // column limit for screen realestate issues
@@ -486,14 +505,86 @@ jQuery(document).ready(function()
                     var month = lib_to_lib['month_order'][month_pos];
                     var thishtml = 
                         "<h1>" + lib_to_lib['months'][month]['table_h1'] + "</h1>"+
-                        bnl_create_csv_download_link(lib_to_lib['months'][month]['table_h1'],lib_to_lib['months'][month]['table_dom'] )+
-                        lib_to_lib['months'][month]['html'];
+                        lib_to_lib['months'][month]['html']+
+                        bnl_create_csv_download_link(lib_to_lib['months'][month]['table_h1'],lib_to_lib['months'][month]['table_dom'] );
                     jQuery(lib_to_lib['dom']).append(thishtml);
                     bnl_wire("#"+lib_to_lib['months'][month]['table_dom'],[[0,'asc']], 8); // column limit for screen realestate issues
                 }
             });
         }
-        
+
+        function bnl_generate_tables_percent(percent_lending_dom, percent_borrowing_dom, dropdown_vals, startDate, endDate)
+        {
+            jQuery(percent_lending_dom).html(' ');
+            jQuery(percent_lending_dom).addClass('loader');
+            jQuery(percent_borrowing_dom).html(' ');
+            jQuery(percent_borrowing_dom).addClass('loader');
+            var types =
+                {
+                    lent: {
+                            dom: percent_lending_dom,
+                            table_dom: 'bnl_my_lending_percentage_table',
+                            th_total_head: 'Lent Total',
+                            table_h1: 'Lending Percentage Summary',
+                            dest_th: 'Lent to System',
+                            total_system_th: 'Total System Lends',
+                            html: ''
+                        },
+                    borrow: {
+                            dom: percent_borrowing_dom,
+                            table_dom: 'bnl_my_lending_borrowing_table',
+                            th_total_head: 'Borrow Total',
+                            table_h1: 'Borrowing Percentage Summary',
+                            dest_th: 'Borrowed from System',
+                            total_system_th: 'Total System Borrows',
+                            html: ''
+                        }
+                }
+            var qstring = getMultiSelectOptionsForQueryString(dropdown_vals);
+            console.log("Gathering from borrowing_n_lending_get?percentage=1&startdate="+startDate+"&enddate="+endDate+qstring);
+            jQuery.get("borrowing_n_lending_get?percentage=1&startdate="+startDate+"&enddate="+endDate+qstring, function(data)
+            {
+                for(var type in types)
+                {
+                    if(data[type])
+                    {
+                        types[type]['html'] = "<table id = '"+types[type]['table_dom']+"'><thead><tr><th>Month</th><th>Library</th><th>System</th><th>"+types[type]['dest_th']+"</th><th>"+types[type]['total_system_th']+"</th><th>Contribution Percentage</th></thead>";
+                        types[type]['html'] += "<tbody>";
+                        for(var month in data[type])
+                        {
+                            for(var branch in data[type][month])
+                            {
+                                for(var system in data[type][month][branch])
+                                {
+                                    if(branch_obj['cluster'][system])
+                                    {
+                                        types[type]['html'] = addHTMLRow_percentage_tables(type, moment(month,'YYYY-MM-DD').format('MM/YYYY'), branch_obj['branch'][branch], branch_obj['cluster'][system]['name'], data[type][month][branch][system][0], data[type][month][branch][system][1], data[type][month][branch][system][2] + "%", types[type]['html']);
+                                    }
+                                    else
+                                    {
+                                        console.log("error: " + branch_obj['cluster'][system] + "not found in cluster array");
+                                    }
+                                }
+                            }
+                        }
+                        types[type]['html'] += "</tbody></table>";
+                    }
+                }
+            }).done(function(){
+                console.log("Finished loading percentage table data");
+                for(var type in types)
+                {
+                    jQuery(types[type]['dom']).removeClass('loader');
+                    var thishtml = 
+                        "<h1>"+types[type]['table_h1']+"</h1>"+
+                        types[type]['html']+
+                        bnl_create_csv_download_link(types[type]['table_h1'],types[type]['table_dom']);
+                    jQuery(types[type]['dom']).html(thishtml);
+                    bnl_wire("#"+types[type]['table_dom'],[[0,'asc'],[1,'asc'],[2,'asc']]);
+                }
+            });   
+        }
+
         function bnl_dedupe_array(a_array, inner = 0, lib_branch_order = 0)
         {
             var dedupe = {};
@@ -561,6 +652,19 @@ jQuery(document).ready(function()
             HTML += "<td class='bnl_branch_table_"+type+"_months_total'>"+total+"</td>\n";
             HTML += monthHTML;
             HTML += "</tr>";
+            return HTML;
+        }
+
+        function addHTMLRow_percentage_tables(type, month, branchName, systemName, quantity, total, percentage, HTML)
+        {
+            HTML += "<tr>\n";
+            HTML += "<td class='bnl_percentage_table_"+type+"_mont'>"+month+"</td>\n";
+            HTML += "<td class='bnl_percentage_table_"+type+"_lib'>"+branchName+"</td>\n";
+            HTML += "<td class='bnl_percentage_table_"+type+"_system'>"+systemName+"</td>\n";
+            HTML += "<td class='bnl_percentage_table_"+type+"_quantity'>"+quantity+"</td>\n";
+            HTML += "<td class='bnl_percentage_table_"+type+"_total'>"+total+"</td>\n";
+            HTML += "<td class='bnl_percentage_table_"+type+"_percentage'>"+percentage+"</td>\n";
+            HTML += "</tr>\n";
             return HTML;
         }
         

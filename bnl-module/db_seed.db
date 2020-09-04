@@ -272,6 +272,7 @@
 'Vail Public Library','Prospector Libraries'
 'Western University','Prospector Libraries'
 'Wilkinson Library','Prospector Libraries'
+'Colorado College','Prospector Libraries'
 
 
 [normalize_branch_name]
@@ -306,7 +307,7 @@
 'Conception Abbey and Seminary College','Conception Abbey & Seminary College'
 'Covenant Seminary','Covenant Theological Seminary'
 'CSU-Pueblo','Colorado State University-Pueblo'
-'CU-Boulder','University of Colorado'
+'CU-Boulder','University of Colorado-Boulder'
 'CU-Law','University of Colorado-Law'
 'Culver-Stockton','Culver-Stockton College'
 'Davenport Public','Davenport Public Library'

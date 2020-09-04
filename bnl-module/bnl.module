@@ -112,8 +112,12 @@ function mobius_bnl_display()
     <div id="bnl_data_tables">
 
         <div id="bnl_my_lending_div"></div>
+        
+        <div id="bnl_my_lending_percentage_div"></div>
 
         <div id="bnl_my_borrowing_div"></div>
+        
+        <div id="bnl_my_borrowing_percentage_div"></div>
 
         <div id="bnl_lib_to_lib_div"></div>
 
@@ -278,7 +282,14 @@ function mobius_bnl_postback()
             'borrowing_cluster_ids.cid' => $clusters['borrowing']
         );
 
-        mobius_bnl_get_bnl_base($data_array, $_GET['startdate'], $_GET['enddate'], $branchArray);
+        if(isset($_GET['percentage']) )
+        {
+            mobius_bnl_get_bnl_percentage($data_array, $_GET['startdate'], $_GET['enddate'], $branchArray);
+        }
+        else
+        {
+            mobius_bnl_get_bnl_base($data_array, $_GET['startdate'], $_GET['enddate'], $branchArray);
+        }
 
         echo $data_array = drupal_json_encode($data_array);
     }
@@ -480,6 +491,145 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
 
             unset($outter);
             unset($inner);
+        }
+        
+        $gotmore = $result->rowCount();
+        $totalRows+=$gotmore;
+        unset($rows);
+        unset($result);
+        $offset += $chunk;
+    }
+    $data_array["query"] = $query;
+    $data_array["result_rows"] = $totalRows;
+}
+
+
+function mobius_bnl_get_bnl_percentage(&$data_array, $startDate, $endDate, $branchSelections)
+{
+    
+    $data_array["amount_branch"] = array();
+    $data_array["amount_cluster"] = array();
+
+    $gotmore = 1;
+    $offset = 0;
+    $chunk = 1000;
+    $totalRows = 0;
+    while($gotmore > 0)
+    {
+        $columns = "";
+        $vals = array($startDate, $endDate);
+        $replacements = array
+        (
+            "lent" => array("!!!type!!!" => "lent", "!!!column_var!!!" => "bnl_owning_name","!!!total_lib_var!!!" => "owning_id", "!!!where_var!!!" => "bnl_borrowing_name" ),
+            "borrow" => array("!!!type!!!" => "borrow","!!!column_var!!!" => "bnl_borrowing_name","!!!total_lib_var!!!" => "borrowing_id", "!!!where_var!!!" => "bnl_owning_name" )
+        );
+        
+        $columns = "
+            SELECT
+            '!!!type!!!' as \"type\",
+            bnl.borrow_date \"borrow_date\",
+            !!!column_var!!!.id \"branch_id\",
+            bnl_totals.cid,
+            sum(bnl.quantity) \"quantity\",
+            bnl_totals.total,round((sum(bnl.quantity) / bnl_totals.total) * 100,3) \"percentage\"
+           ";
+    
+        $fromClauseStart = "
+            FROM 
+            mobius_bnl_bnl bnl,
+            (
+                SELECT
+                borrow_date,
+                branch_system.cid,
+                sum(quantity) \"total\"
+                FROM
+                mobius_bnl_bnl_final_branch_map bnl,
+                mobius_bnl_branch_system branch_system
+                WHERE
+                branch_system.fid=bnl.!!!total_lib_var!!! AND
+                bnl.quantity > 0
+                GROUP BY 1,2
+                ORDER BY 1
+            ) as bnl_totals,
+            mobius_bnl_branch bnl_borrowing_branch,
+            mobius_bnl_branch bnl_owning_branch,
+            mobius_bnl_branch_name_final bnl_borrowing_name,
+            mobius_bnl_branch_name_final bnl_owning_name,
+            mobius_bnl_branch_system bnl_branch_system
+            WHERE
+            !!!where_var!!!.id=bnl_branch_system.fid AND
+            bnl_branch_system.cid=bnl_totals.cid AND
+            bnl_totals.borrow_date = bnl.borrow_date and
+            bnl_borrowing_name.id = bnl_borrowing_branch.final_branch and
+            bnl_owning_name.id = bnl_owning_branch.final_branch and
+            bnl.borrowing_branch = bnl_borrowing_branch.id and
+            bnl.owning_branch = bnl_owning_branch.id and
+            bnl_borrowing_name.id != bnl_owning_name.id and
+            bnl.borrow_date between str_to_date( concat(?,'-01') ,'%Y-%m-%d') and str_to_date( concat(?,'-01') ,'%Y-%m-%d')
+            and bnl.quantity > 0
+            ";
+
+        $fromClause = mobius_bnl_get_bnl_base_branches_from_clause($fromClauseStart, $vals, $branchSelections, 0);
+        $groupClause = " group by 1,2,3,4,6";
+        
+        $query = $columns.$fromClause.$groupClause;
+        foreach($replacements['lent'] as $key => $value)
+        {
+            $query = preg_replace("/".$key."/", $value, $query);
+        }
+
+        $query .= "
+        UNION ALL
+        $columns";
+
+       $vals[] = $startDate;
+       $vals[] = $endDate;
+       $fromClause = mobius_bnl_get_bnl_base_branches_from_clause($fromClauseStart, $vals, $branchSelections, 1);
+       $query .= $fromClause.$groupClause;
+       foreach($replacements['borrow'] as $key => $value)
+       {
+           $query = preg_replace("/".$key."/", $value, $query);
+       }
+        
+        $query .= "
+            limit $chunk
+            offset $offset";
+// echo preg_replace('/\n/','<br>',$query);
+// print_r($vals);
+// exit;
+        $bnl_def = 
+        [
+            "lent" => [ "inner" =>"borrowing_branch_id", "outter" => "owning_branch_id"],
+            "borrow" => [ "inner" =>"owning_branch_id", "outter" => "borrowing_branch_id"]
+        ];
+        $result = db_query($query,$vals);
+        while($libraryRow = $result->fetchAssoc())
+        {   
+            if(!$data_array[$libraryRow["type"]])
+            {
+                $data_array[$libraryRow["type"]] = array();
+            }
+            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]])
+            {
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]] = array();
+            }
+            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["branch_id"]])
+            {
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["branch_id"]] = array();
+            }
+            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["branch_id"]][$libraryRow["cid"]])
+            {
+                $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["branch_id"]][$libraryRow["cid"]] = array();
+            }
+            if(!$data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["branch_id"]][$libraryRow["cid"]])
+            {
+               $data_array[$libraryRow["type"]][$libraryRow["borrow_date"]][$libraryRow["branch_id"]][$libraryRow["cid"]] = array
+               (
+                    $libraryRow["quantity"],
+                    $libraryRow["total"],
+                    $libraryRow["percentage"]
+               );
+            }
         }
         
         $gotmore = $result->rowCount();

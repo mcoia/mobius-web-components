@@ -288,6 +288,9 @@ sub createDatabase
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_system ";
         $log->addLine($query);
         $dbHandler->update($query);
+        my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_cluster_raw ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_branch_cluster ";
         $log->addLine($query);
         $dbHandler->update($query);
@@ -572,7 +575,7 @@ sub createDatabase
         ## Creates a map between each branch and the clsuter they belong to.
         ## This relies on the above views (above views are not used in this project)
         $query = "
-        CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster
+        CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster_raw
         AS
         -- Find branches with that appear on innreach and sierra. Prefer sierra cluster ID for sierra entries
         select DISTINCT 
@@ -706,7 +709,7 @@ sub createDatabase
         UNION ALL
 
         -- Find branches that appear on innreach only AND are NOT manually assigned to a cluster
-        select DISTINCT 
+        SELECT DISTINCT 
         final_branch.id \"fid\",cluster.name \"cname\",cluster.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
@@ -722,11 +725,20 @@ sub createDatabase
         cluster.id=branch.cluster AND
         lower(cluster.type) = 'innreach' AND
         lower(cluster_map.types) NOT LIKE '%sierra%' AND
-        lower(final_branch.name) NOT IN(select lower(name) from $stagingTablePrefix"."_manual_branch_to_cluster)
+        lower(final_branch.name) NOT IN(SELECT lower(name) from $stagingTablePrefix"."_manual_branch_to_cluster)
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-
+        
+        # And dedupe it into it's final form
+        $query = "
+        CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster
+        AS
+        SELECT DISTINCT fid,cid FROM $stagingTablePrefix"."_branch_cluster_raw
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+        
         ## Creates a map between each branch and the system they belong to
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_system
@@ -735,9 +747,9 @@ sub createDatabase
         SELECT 
         final_branch.id \"fid\",cluster.parent_cluster \"cid\"
         FROM
-        mobius_bnl_branch_cluster branch_cluster,
-        mobius_bnl_branch_name_final final_branch,
-        mobius_bnl_cluster cluster
+        $stagingTablePrefix"."_branch_cluster branch_cluster,
+        $stagingTablePrefix"."_branch_name_final final_branch,
+        $stagingTablePrefix"."_cluster cluster
         WHERE
         branch_cluster.fid = final_branch.id AND
         branch_cluster.cid = cluster.id
