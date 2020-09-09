@@ -734,7 +734,7 @@ sub createDatabase
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster
         AS
-        SELECT DISTINCT fid,cid FROM $stagingTablePrefix"."_branch_cluster_raw
+        SELECT DISTINCT fid,cid,cname FROM $stagingTablePrefix"."_branch_cluster_raw
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);

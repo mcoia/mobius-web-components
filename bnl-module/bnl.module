@@ -89,7 +89,7 @@ function mobius_bnl_display()
         </div> <!-- bnl_advanced_filter_container -->
 
         <div class="bnl_advanced_filter_container hide">
-            <input type="checkbox" name="show-zeros" id="show_zeros"></input><label id="show_zeros_label" for="show_zeros">Show Zeros</label>
+            <!-- <input type="checkbox" name="show-zeros" id="show_zeros"></input><label id="show_zeros_label" for="show_zeros">Show Zeros</label> -->
         </div> <!-- bnl_advanced_filter_container -->
 
         <div id="bnl_date_div">
@@ -129,7 +129,8 @@ function mobius_bnl_display()
     <hr />
     <div id="instructions_show_hide"><a href="#instructions" id="instructions_show_hide_a" >Show/hide instructions</a></div>
   <div class="bnl_instructions" style="display: none">
-  <h2><a name="instructions"></a>Instructions</h2>
+
+    <h2><a name="instructions"></a>Instructions</h2>
   <h3>Purpose</h3>
     <p>
     This tool is used to explore the Borrowing and Lending statistics for the MOBIUS consortium participating libraries.
@@ -138,88 +139,109 @@ function mobius_bnl_display()
     <h3>Basics</h3>
   <ol>
     <li><a href="#choosingdate">Choose a date</a></li>
-    <li><a href="#choosinglibrary">Choose an Owning Library (optional)</a></li>
-    <li><a href="#choosinglibrary">Choose a Borrowing Library (optional)</a></li>
-    <li>Choose "Show Zeros" if you want the results to include the instances where no materials were shared</li>
+    <li>
+    <a href="#choosinglibrary_basic">Choose your library</a>
+        <ul>
+        <li><a href="#choosinglibrary_advanced">or* use advanced filters</a></li>
+        </ul>
+    </li>
     <li>Click "Get Results!"</li>
     <li><a href="#exploreresults">Explore the results</a></li>
     <li><a href="#downloadresults">Download the results</a></li>
   </ol>
   
-  <h3><a name="choosingdate"></a>
-    Choosing a date</h3>
-  <p>Dates are expressed in terms of "whole months"</p>
-  <ol>
-    <li>Click inside the box located below the phrase "Date Range"
-      <br>
-    <img src="../../misc/bnl/bnl_calendar.png" alt="Date Range widget highlighting the options on the left">
-    </li>
-    
-    <li>This will cause a calendar widget to appear. There are some quick links for "Last Month", "Two Months Ago", "Three Months Ago", "Four Months Ago" and "Custom Range". 
-      <ol>
-        <li>If you need to specify <b>more than one month</b>
-          <ul>
-            <li>Cilck on "Custom Range"</li>
-            <li>Cilck on the arrow buttons on the top-left/top-right until you have arrived at your starting month</li>
-            <li>Cilck on ANY day within the month</li>
-            <li>Cilck on the arrow button on the top-right until you have arrived at your destination month</li>
-            <li>Cilck on ANY day within the destination month</li>
-          </ul>
-        </li>
-        <li>If you need to specify a <b>single month more than four months ago</b>
-          <ul>
-            <li>Cilck on "Custom Range"</li>
-            <li>Cilck on the arrow buttons on the top-left/top-right until you have arrived at your starting month</li>
-            <li>Cilck on ANY day in the first half of the month</li>
-            <li>Cilck on a day in the month greater than the starting day</li>
-          </ul>
-        </li>
-      </ol>
-    </li>
-    </ol>
   
   <h3><a name="choosinglibrary"></a>
     Choosing a library</h3>
-  <p>This tool allows you to choose more than one library.</p>
-  <p>You do not need to make a selection from any of the dropdown menus. Choosing nothing means "all" options are included.</p>
-  <p>When you click into any of the selection boxes, you will see the choices dropdown below your cursor:</p>
-  <img src="../../misc/bnl/bnl_library_dropdown_list.png" alt="Dropdown list showing listing of libraries with search box">
-  <p>You may choose an option by clicking it. <b>You may search for an option by typing partial words in the box above the list.</b> After you make a selection:</p>
-  <img src="../../misc/bnl/bnl_library_dropdown_list_one_selected.png" alt="Dropdown list with one selected and option is now greyed out">
-  <p>You may click into the dropdown box again and make additional selections. You are only allowed to choose the same option once.</p>
-  <div class="messages status">NOTE: After you choose an option from one dropdown, you will not be allowed to choose an option from another dropdown in the same group</div>
-  <p>Choosing options from the "Cluster" or "System" dropdowns will include any libraries that are connected to that selection. You may choose more than one.</p>
-  <div class="messages status">Hint: If you would like to know the details for your library for both Borrowing and Lending, you may need to run this reporting tool twice; once with your library chosen from the Owning category and once with your library chosen from the Borrowing category.</div>
+    
+        <h4><a name="choosinglibrary_basic"></a>Basic library selection</h4>
+        <p>
+            Click into the search box and begin typing the name of your library. You will be presented with a list of matching libraries. Click on your library.
+            You are only allowed to choose one library. If you want to specify more, please use the <a href="#choosinglibrary_advanced">advanced filters</a>.<br />
+            <img src="../../misc/bnl/bnl_library_dropdown_list_one_selected.png" alt="Dropdown list with one selected and option is now greyed out">
+        </p>
+        
+        <h4><a name="choosinglibrary_advanced"></a>Advanced library selection</h4>
+
+          <p>Advanced filters allow you to choose more than one library.</p>
+          <p>You do not need to make a selection from any of the dropdown menus. Choosing nothing means "all" options are included.</p>
+          <p>When you click into any of the selection boxes, you will see the choices dropdown below your cursor:</p>
+          <img src="../../misc/bnl/bnl_library_dropdown_list.png" alt="Dropdown list showing listing of libraries with search box">
+          <p>You may choose an option by clicking it. <b>You may search for an option by typing partial words in the box above the list.</b> After you make a selection:</p>
+          <img src="../../misc/bnl/bnl_library_dropdown_list_one_selected.png" alt="Dropdown list with one selected and option is now greyed out">
+          <p>You may click into the dropdown box again and make additional selections. You are only allowed to choose the same option once.</p>
+          <div class="messages status">NOTE: After you choose an option from one dropdown, you will not be allowed to choose an option from another dropdown in the same group</div>
+          <p>Choosing options from the "Cluster" or "System" dropdowns will include any libraries that are connected to that selection. You may choose more than one.</p>
+          
+    <h3><a name="choosingdate"></a>
+    Choosing a date</h3>
+  <p>Dates are expressed in terms of "whole months"</p>
+  <ol>
+    <li>Choose a month for "From" and "To"
+      <br>
+    <img src="../../misc/bnl/bnl_calendar.png" alt="Date Range widget">
+    </li>
+    <li>The tool will not allow you to choose months that do not have data in the database.</li>
+    <li>The "From" month needs to be before or the same as the "To" month. The interface enforces this.</li>
+    <li>You can change the year quicker by clicking on the "Year" button highlighted above in red. You should see a year selector:
+      <br>
+    <img src="../../misc/bnl/bnl_calendar_year.png" alt="Date Range widget showing year selection">
+    </li>
+    </ol>
+
+    
   <h3><a name="exploreresults"></a>
     Explore the results</h3>
-  <p>After the data has been populated from the server, you should see four tables.</p>
+  <p>After the data has been populated from the server, you will see should see at least five result tables.</p>
+  <div class="messages status">NOTE: If the server does not contain data for your selected criteria, the coorisponding result table will be omitted from the results.</div>
   <ol>
   <li>
-  Owning Summary
-  <br /><img src="../../misc/bnl/bnl_owning_summary.png" alt="Owning summary header image"><br />
+  Lending Summary
+  <br /><img src="../../misc/bnl/bnl_lending_summary.png" alt="Lending summary header image"><br />
   <ul>
-  <li>This table shows total items <b>lent</b> by the included librar(ies). It provides a sum for each filtered library and each month within the selected range (if data exists).</li>
+  <li>
+      This table shows total items <b>lent</b> by the included librar(ies).
+      It provides a sum for each filtered library and each month within the selected range (if data exists).
+      If the month range exceeds the width, the display will be truncated. You will be prompted to download the spreadsheet to see the whole data set.
+  </li>
+  </ul>
+  </li>
+  <li>
+  Lending Percentage Summary
+  <br /><img src="../../misc/bnl/bnl_lending_percentage.png" alt="Lending percentage header image"><br />
+  <ul>
+  <li>
+      This table provides the contribution percentage of each library in your search critera. 
+      The percentage is shown in terms of percentage <b>lent</b> as compared to all libraries in each system group.
+  </li>
   </ul>
   </li>
   <li>
   Borrowing Summary
   <br /><img src="../../misc/bnl/bnl_borrowing_summary.png" alt="Borrowing summary header image"><br />
   <ul>
-  <li>This table shows total items <b>borrowed</b> by the included librar(ies). It provides a sum for each filtered library and each month within the selected range (if data exists).</li>
+  <li>
+    This table shows total items <b>borrowed</b> by the included librar(ies).
+    It provides a sum for each filtered library and each month within the selected range (if data exists).
+    If the month range exceeds the width, the display will be truncated. You will be prompted to download the spreadsheet to see the whole data set.
+  </li>
   </ul>
   </li>
   <li>
-  Library to Library
-  <br /><img src="../../misc/bnl/bnl_lib_to_lib.png" alt="Library to library header image"><br />
-  <p>This table shows the details. It shows the total of items lent for each possible combination of libraries within the selected criteria.
-  <div class="messages status">NOTE: This will show a sum total for ALL months included in the specified month range.</div>
-  </p>
-  </li>
+  Borrowing Percentage Summary
+  <br /><img src="../../misc/bnl/bnl_borrowing_percentage.png" alt="Borrowing percentage header image"><br />
+  <ul>
   <li>
-  Cluster to Cluster
-  <br /><img src="../../misc/bnl/bnl_cluster_to_cluster.png" alt="Cluster to cluster header image"><br />
-  <p>This table is similar to the "Library to Library" table. Instead of displaying the individual library, this table shows the cluster to which the specified librar(ies) belong. It shows the total items lent for each possible combination of libraries within the selected criteria.
-  <div class="messages status">NOTE: This table DOES NOT include any libraries that were not specified. The totals are only for the libraries chosen. Instead of displaying the library names, it shows the associated cluster(s).</div>
+      This table provides the contribution percentage of each library in your search critera. 
+      The percentage is shown in terms of percentage <b>borrowed</b> as compared to all libraries in each system group.
+  </li>
+  </ul>
+  <li>
+  "Details" tables
+  <br /><img src="../../misc/bnl/bnl_detail_table.png" alt="Details table header image"><br />
+  <p>This table shows the details. All of the search included libraries who participated as a borrower are diplayed along the Y axis.
+  The lending libraries are diplayed along the X axis. It shows the total of items lent for each possible combination of libraries within the selected criteria.
+  <div class="messages status">NOTE: You will see a new table for each month included in your search range.</div>
   </p>
   </li>
   </ol>
@@ -251,6 +273,7 @@ function mobius_bnl_display()
   When clicked, you will be prompted to download a CSV file. This file may be opened with Microsoft Excel or Libre Calc or any other spreadsheet application.
   <div class="messages status">NOTE: The spreadsheet will contain <b>ALL</b> of the results of the table regardless of any search you may have performed on it</div>
   </p>
+  
   
   </div>
      '
