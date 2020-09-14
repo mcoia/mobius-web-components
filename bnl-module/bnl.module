@@ -170,8 +170,8 @@ function mobius_bnl_display()
           <p>You may choose an option by clicking it. <b>You may search for an option by typing partial words in the box above the list.</b> After you make a selection:</p>
           <img src="../../misc/bnl/bnl_library_dropdown_list_one_selected.png" alt="Dropdown list with one selected and option is now greyed out">
           <p>You may click into the dropdown box again and make additional selections. You are only allowed to choose the same option once.</p>
-          <div class="messages status">NOTE: After you choose an option from one dropdown, you will not be allowed to choose an option from another dropdown in the same group</div>
-          <p>Choosing options from the "Cluster" or "System" dropdowns will include any libraries that are connected to that selection. You may choose more than one.</p>
+          <div class="messages status">NOTE: After you choose an option from one dropdown, you will not be allowed to choose an option from another dropdown in the same group. For example, if you make a selection in the Library field, you will not be able to make a selection under Cluster or System. You may make additional selections under Library.</div>
+          <p>Choosing options from the "Cluster" or "System" dropdowns will automatically include any libraries that are connected to that selection. You may choose more than one.</p>
           
     <h3><a name="choosingdate"></a>
     Choosing a date</h3>
@@ -193,7 +193,7 @@ function mobius_bnl_display()
   <h3><a name="exploreresults"></a>
     Explore the results</h3>
   <p>After the data has been populated from the server, you will see should see at least five result tables.</p>
-  <div class="messages status">NOTE: If the server does not contain data for your selected criteria, the coorisponding result table will be omitted from the results.</div>
+  <div class="messages status">NOTE: If the server does not contain data for your selected criteria, the corresponding result table will be omitted from the results.</div>
   <ol>
   <li>
   Lending Summary
@@ -201,8 +201,8 @@ function mobius_bnl_display()
   <ul>
   <li>
       This table shows total items <b>lent</b> by the included librar(ies).
-      It provides a sum for each filtered library and each month within the selected range (if data exists).
-      If the month range exceeds the width, the display will be truncated. You will be prompted to download the spreadsheet to see the whole data set.
+      It provides a sum for each library and each month within the selected range (if data exists).
+      If the month range exceeds the width of the browser screen, the display will be truncated. You will be prompted to download the spreadsheet to see the whole data set.
   </li>
   </ul>
   </li>
@@ -212,7 +212,7 @@ function mobius_bnl_display()
   <ul>
   <li>
       This table provides the contribution percentage of each library in your search critera. 
-      The percentage is shown in terms of percentage <b>lent</b> as compared to all libraries in each system group.
+      The percentage is shown in terms of percentage <b>lent</b> as compared to all libraries in each system group. (i.e., MOBIUS or Prospector)
   </li>
   </ul>
   </li>
@@ -222,8 +222,8 @@ function mobius_bnl_display()
   <ul>
   <li>
     This table shows total items <b>borrowed</b> by the included librar(ies).
-    It provides a sum for each filtered library and each month within the selected range (if data exists).
-    If the month range exceeds the width, the display will be truncated. You will be prompted to download the spreadsheet to see the whole data set.
+    It provides a sum for each library and each month within the selected range (if data exists).
+    If the month range exceeds the width of the browser screen, the display will be truncated. You will be prompted to download the spreadsheet to see the whole data set.
   </li>
   </ul>
   </li>
@@ -233,7 +233,7 @@ function mobius_bnl_display()
   <ul>
   <li>
       This table provides the contribution percentage of each library in your search critera. 
-      The percentage is shown in terms of percentage <b>borrowed</b> as compared to all libraries in each system group.
+      The percentage is shown in terms of percentage <b>borrowed</b> as compared to all libraries in each system group. (i.e., MOBIUS or Prospector)
   </li>
   </ul>
   <li>
@@ -620,11 +620,6 @@ function mobius_bnl_get_bnl_percentage(&$data_array, $startDate, $endDate, $bran
 // echo preg_replace('/\n/','<br>',$query);
 // print_r($vals);
 // exit;
-        $bnl_def = 
-        [
-            "lent" => [ "inner" =>"borrowing_branch_id", "outter" => "owning_branch_id"],
-            "borrow" => [ "inner" =>"owning_branch_id", "outter" => "borrowing_branch_id"]
-        ];
         $result = db_query($query,$vals);
         while($libraryRow = $result->fetchAssoc())
         {   

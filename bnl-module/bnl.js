@@ -295,10 +295,27 @@ jQuery(document).ready(function()
             console.log("Gathering from borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring);
             jQuery.get("borrowing_n_lending_get?startdate="+startDate+"&enddate="+endDate+qstring, function(data)
             {
+                var selections = getMultiSelectOptions(dropdown_vals, 0);
+                if(selections['owning'].length == 0 && selections['borrowing'].length == 0)
+                {
+                     selections = getMultiSelectOptions(dropdown_vals);
+                }
+                var translate =
+                {
+                    lent: 'owning',
+                    borrow: 'borrowing'
+                };
+                
                 for(var type in types)
                 {
                     if(data[type])
                     {
+                        var includeSubTotalRow = 0;
+
+                        if(selections[translate[type]].length > 1)
+                        {
+                            includeSubTotalRow = 1;
+                        }
                         // Setup the branch_sort to make only one trip through!
                         branch_obj['branch_sort'] = {};
                         for(var l in branch_obj['branch_order'])
@@ -419,7 +436,7 @@ jQuery(document).ready(function()
                                             }
                                         }
                                     }
-                                    if(systemShow)
+                                    if(systemShow && includeSubTotalRow)
                                     {
                                         types[type]['html'] = addHTMLRow_my_tables(type, branch_obj['branch'][plib], branch_obj['cluster'][system]['name'],"<span class='sort'>Z</span>Sub Total:", monthTotalSystem, months, types[type]['html']);
                                     }
@@ -436,6 +453,7 @@ jQuery(document).ready(function()
                 }
                 // Finished building the "my" tables, Now onto the "Lib to lib" table(s) - one for each month in range
                 lib_to_lib['month_order'].reverse();
+                
                 
                 for(var month_pos in lib_to_lib['month_order'])
                 {
@@ -457,28 +475,31 @@ jQuery(document).ready(function()
                     for(var plib_pos in lib_to_lib['months'][month]['down'])
                     {
                         var plib = lib_to_lib['months'][month]['down'][plib_pos];
-                        var total = 0;
-                        var colHTML = "";
-                        var colPos = 1;
-                        for(var slib_pos in lib_to_lib['months'][month]['across'])
+                        if(selections['owning'].includes(plib) || selections['borrowing'].includes(plib)) // Make sure this lib was explicitly selected
                         {
-                            var slib = lib_to_lib['months'][month]['across'][slib_pos];
-                            var amount = 0;
-                            // Only running through the borrow data, This is essentially a borrow diagram
-                            if(data['borrow'] && data['borrow'][month] && data['borrow'][month][plib] && data['borrow'][month][plib][slib])
+                            var total = 0;
+                            var colHTML = "";
+                            var colPos = 1;
+                            for(var slib_pos in lib_to_lib['months'][month]['across'])
                             {
-                                amount += data['borrow'][month][plib][slib];
-                                total += amount;
+                                var slib = lib_to_lib['months'][month]['across'][slib_pos];
+                                var amount = 0;
+                                // Only running through the borrow data, This is essentially a borrow diagram
+                                if(data['borrow'] && data['borrow'][month] && data['borrow'][month][plib] && data['borrow'][month][plib][slib])
+                                {
+                                    amount += data['borrow'][month][plib][slib];
+                                    total += amount;
+                                }
+                                colHTML+="<td>" + amount + "</td>";
+                                colTotals[colPos] += amount;
+                                colPos++;
+                                amount = undefined;
                             }
-                            colHTML+="<td>" + amount + "</td>";
-                            colTotals[colPos] += amount;
-                            colPos++;
-                            amount = undefined;
+                            colTotals[0] += total;
+                            lib_to_lib['months'][month]['html'] += "<tr><td>" + branch_obj['branch'][plib] + "</td><td>" + total + "</td>" + colHTML +"</tr>";
                         }
-                        colTotals[0] += total;
-                        lib_to_lib['months'][month]['html'] += "<tr><td>" + branch_obj['branch'][plib] + "</td><td>" + total + "</td>" + colHTML +"</tr>";
                     }
-                    lib_to_lib['months'][month]['html'] += "<tr><td>Totals</td>";
+                    lib_to_lib['months'][month]['html'] += "<tr><td><span class='sort'>Z</span>Totals</td>";
                     for(var t_pos in colTotals)
                     {
                         lib_to_lib['months'][month]['html'] += "<td>" + colTotals[t_pos] + "</td>";
@@ -718,7 +739,7 @@ jQuery(document).ready(function()
             return ret;
         }
         
-        function getMultiSelectOptions(dropdown_vals)
+        function getMultiSelectOptions(dropdown_vals, empty_is_all = 1)
         {
             // This function creates an array of all of the libraries that are included in the users selection
             // Handling the non-selections as ALL
@@ -734,40 +755,53 @@ jQuery(document).ready(function()
                 var somethingSpecified = 0;
                 for(var drop_type in dropdown_vals)
                 {
-                    var qstring = drop_type + "_" + type;
-                    var dom = "#"+type+"_"+dropdown_vals[drop_type]['chooser'];
-                    if(jQuery(dom).val() && jQuery(dom).val().length > 0)
+                    var collect = 0;
+                    var q_drop_type = drop_type;
+                    if(jQuery("#filter_switcher_word").html() == 'Advanced' && drop_type == 'branch_basic')  // basic filter (only one)
                     {
-                        var a = jQuery(dom).val();
-                        somethingSpecified = 1;
-                        switch (drop_type)
+                        collect = 1;
+                        q_drop_type = 'branch';
+                    }
+                    else if(jQuery("#filter_switcher_word").html() != 'Advanced' && drop_type != 'branch_basic') // advanced filters
+                    {
+                        collect = 1;
+                    }
+                    if(collect)
+                    {
+                        var dom = "#"+type+"_"+dropdown_vals[drop_type]['chooser'];
+                        if(jQuery(dom).val() && jQuery(dom).val().length > 0)
                         {
-                            case 'branch':
-                                for(var j in a)
-                                {
-                                    ret[type].push(a[j]);
-                                }
-                            break;
-                            default:
-                                var associative = {};
-                                for(var k in a)
-                                {
-                                    associative[a[k]] = 1;
-                                }
-                                for(var branch in branch_obj['branch_to_cluster'])
-                                {
-                                    for(var cluster_id in branch_obj['branch_to_cluster'][branch])
+                            var a = jQuery(dom).val();
+                            somethingSpecified = 1;
+                            switch (q_drop_type)
+                            {
+                                case 'branch':
+                                    for(var j in a)
                                     {
-                                        if(associative[cluster_id])
+                                        ret[type].push(a[j]);
+                                    }
+                                break;
+                                default:
+                                    var associative = {};
+                                    for(var k in a)
+                                    {
+                                        associative[a[k]] = 1;
+                                    }
+                                    for(var branch in branch_obj['branch_to_cluster'])
+                                    {
+                                        for(var cluster_id in branch_obj['branch_to_cluster'][branch])
                                         {
-                                            ret[type].push(branch);
+                                            if(associative[cluster_id])
+                                            {
+                                                ret[type].push(branch);
+                                            }
                                         }
                                     }
-                                }
+                            }
                         }
                     }
                 }
-                if(!somethingSpecified) // All branches are included when no clusters, no systems, no branches are selected
+                if(!somethingSpecified && empty_is_all) // All branches are included when no clusters, no systems, no branches are selected
                 {
                     for(var branch in branch_obj['branch'])
                     {
@@ -968,7 +1002,10 @@ jQuery(document).ready(function()
                             jQuery(tdom + "_chosen > ul").css("display","none");
                             jQuery(tdom + "_chosen").css("background-color","grey");
                             jQuery(tdom + "_chosen").css("height","0px");
-                            jQuery(tdom + "_chosen").parent().prepend("<div class='dropdown_menu_overlay'></div>");
+                            if(!jQuery(tdom + "_chosen").parent().find('.dropdown_menu_overlay').length > 0) // only append this once
+                            {
+                                jQuery(tdom + "_chosen").parent().prepend("<div class='dropdown_menu_overlay'></div>");
+                            }
                         }
                     }
                 }
