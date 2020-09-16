@@ -236,6 +236,7 @@ function mobius_bnl_display()
       The percentage is shown in terms of percentage <b>borrowed</b> as compared to all libraries in each system group. (i.e., MOBIUS or Prospector)
   </li>
   </ul>
+  <!--  disabling this until further notice
   <li>
   "Details" tables
   <br /><img src="../../misc/bnl/bnl_detail_table.png" alt="Details table header image"><br />
@@ -245,6 +246,7 @@ function mobius_bnl_display()
   </p>
   </li>
   </ol>
+  -->
   <p>
   <b>A word about using the tools provided by each table</b>
   <br />
@@ -466,11 +468,27 @@ function mobius_bnl_get_bnl_base(&$data_array, $startDate, $endDate, $branchSele
 // echo preg_replace('/\n/','<br>',$query);
 // print_r($vals);
 // exit;
-        $bnl_def = 
+        $bnl_def =
         [
             "lent" => [ "inner" =>"borrowing_branch_id", "outter" => "owning_branch_id"],
             "borrow" => [ "inner" =>"owning_branch_id", "outter" => "borrowing_branch_id"]
         ];
+        if(mobius_bnl_figure_specified_branches($branchSelections) == 1)  // Need to reverse if they only specified borrowing libraries
+        {
+            $bnl_def =
+            [
+                "borrow" => [ "inner" =>"borrowing_branch_id", "outter" => "owning_branch_id"],
+                "lent" => [ "inner" =>"owning_branch_id", "outter" => "borrowing_branch_id"]
+            ];
+        }
+        if(mobius_bnl_figure_specified_branches($branchSelections) == 2)  // If they specified libraries on both sides, then leave it standard
+        {
+            $bnl_def =
+            [
+                "lent" => [ "inner" =>"borrowing_branch_id", "outter" => "owning_branch_id"],
+                "borrow" => [ "inner" =>"owning_branch_id", "outter" => "borrowing_branch_id"]
+            ];
+        }
         $result = db_query($query,$vals);
         while($libraryRow = $result->fetchAssoc())
         {
@@ -543,10 +561,18 @@ function mobius_bnl_get_bnl_percentage(&$data_array, $startDate, $endDate, $bran
         $vals = array($startDate, $endDate);
         $replacements = array
         (
-            "lent" => array("!!!type!!!" => "lent", "!!!column_var!!!" => "bnl_owning_name","!!!total_lib_var!!!" => "owning_id", "!!!where_var!!!" => "bnl_borrowing_name" ),
-            "borrow" => array("!!!type!!!" => "borrow","!!!column_var!!!" => "bnl_borrowing_name","!!!total_lib_var!!!" => "borrowing_id", "!!!where_var!!!" => "bnl_owning_name" )
+            "lent"   => array("!!!type!!!" => "lent", "!!!column_var!!!" => "bnl_owning_name","!!!total_lib_var!!!" => "owning_id", "!!!where_var!!!" => "bnl_borrowing_name" ),
+            "borrow" => array("!!!type!!!" => "borrow", "!!!column_var!!!" => "bnl_borrowing_name","!!!total_lib_var!!!" => "borrowing_id", "!!!where_var!!!" => "bnl_owning_name" )
         );
-        
+        if( mobius_bnl_figure_specified_branches($branchSelections) == 1 )
+        {
+            $replacements = array
+            (
+                "lent"   => array("!!!type!!!" => "lent", "!!!column_var!!!" => "bnl_borrowing_name","!!!total_lib_var!!!" => "borrowing_id", "!!!where_var!!!" => "bnl_owning_name" ),
+                "borrow" => array("!!!type!!!" => "borrow", "!!!column_var!!!" => "bnl_owning_name","!!!total_lib_var!!!" => "owning_id", "!!!where_var!!!" => "bnl_borrowing_name" )
+            );
+        }
+
         $columns = "
             SELECT
             '!!!type!!!' as \"type\",
@@ -715,6 +741,29 @@ function mobius_bnl_get_bnl_base_branches_from_clause($fromClause, &$vals, $bran
         }
     }
     return $fromClause;
+}
+
+function mobius_bnl_figure_specified_branches($branchSelections)
+{
+    $borrowing = 0;
+    foreach ($branchSelections as $key => $value)
+    {
+        if(strlen($value) > 0)
+        {
+ 
+            if(preg_match("/borrowing/", $key))
+            {
+                $borrowing = 1;
+            }
+        }
+    }
+    $ret = 0;
+    // 0 = only owning specified
+    // 1 = only borrowing specified
+    // 2 = both owning and borrowing specified
+    $ret = $borrowing ? 1 : 0;
+    $ret = ( $borrowing && $owning ) ? 2 : $ret;
+    return $ret;
 }
 
 function mobius_borrowing_n_lending_json() {

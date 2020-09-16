@@ -523,13 +523,16 @@ jQuery(document).ready(function()
                 
                 for(var month_pos in lib_to_lib['month_order'])
                 {
-                    var month = lib_to_lib['month_order'][month_pos];
-                    var thishtml = 
-                        "<h1>" + lib_to_lib['months'][month]['table_h1'] + "</h1>"+
-                        lib_to_lib['months'][month]['html']+
-                        bnl_create_csv_download_link(lib_to_lib['months'][month]['table_h1'],lib_to_lib['months'][month]['table_dom'] );
-                    jQuery(lib_to_lib['dom']).append(thishtml);
-                    bnl_wire("#"+lib_to_lib['months'][month]['table_dom'],[[0,'asc']], 8); // column limit for screen realestate issues
+                    // Disabling this feature until we spend the time to code this to reach out and flesh out all the rest of the data
+                    // for the other libraries to include on this table
+
+                    // var month = lib_to_lib['month_order'][month_pos];
+                    // var thishtml = 
+                        // "<h1>" + lib_to_lib['months'][month]['table_h1'] + "</h1>"+
+                        // lib_to_lib['months'][month]['html']+
+                        // bnl_create_csv_download_link(lib_to_lib['months'][month]['table_h1'],lib_to_lib['months'][month]['table_dom'] );
+                    // jQuery(lib_to_lib['dom']).append(thishtml);
+                    // bnl_wire("#"+lib_to_lib['months'][month]['table_dom'],[[0,'asc']], 8); // column limit for screen realestate issues
                 }
             });
         }
