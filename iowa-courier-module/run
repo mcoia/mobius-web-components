@@ -5,7 +5,7 @@ ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 
-rm  /tmp/.X99-lock
+rm /tmp/.X99-lock
 
 # run the selenium stuff
 selenium/start_selenium
