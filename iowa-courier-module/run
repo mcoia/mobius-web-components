@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Zabbix bits
+# UserParameter=custom.iowa_courier_log_length,cat /tmp/courier_log.log | wc -l
+# UserParameter=custom.iowa_courier_log_age,find /tmp/courier_log.log -type f -mtime +1|wc -l
+
+
+
 # Make sure all the leftover stuff isn't running
 ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
