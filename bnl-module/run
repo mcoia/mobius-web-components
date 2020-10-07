@@ -16,7 +16,7 @@ sleep 5
 rm -f /tmp/.X99-lock
 
 # run the selenium stuff
-selenium/start_selenium
+selenium/start_selenium &
 
 sleep 10
 

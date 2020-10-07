@@ -8,7 +8,7 @@ ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 rm -f /tmp/.X99-lock
 
 # run the selenium stuff
-selenium/start_selenium
+selenium/start_selenium &
 
 sleep 5
 
