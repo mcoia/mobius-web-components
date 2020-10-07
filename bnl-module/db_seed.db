@@ -465,3 +465,11 @@
 [shortname_override]
 'frwb','Missouri University of Science & Technology'
 'fsb','University of Missouri-St. Louis'
+
+[suppress_name_listing]
+'MOBIUS Archway Cluster'
+'MOBIUS Arthur Cluster'
+'MOBIUS Avalon Cluster'
+'MOBIUS Bridges Cluster'
+'MOBIUS KC-Towers Cluster'
+'MOBIUS Swan Cluster'

@@ -306,6 +306,9 @@ sub createDatabase
         my $query = "DROP FUNCTION IF EXISTS $stagingTablePrefix"."_normalize_library_name ";
         $log->addLine($query);
         $dbHandler->update($query);
+        my $query = "DROP TABLE $stagingTablePrefix"."_suppress_name_listing ";
+        $log->addLine($query);
+        $dbHandler->update($query);
         my $query = "DROP TABLE $stagingTablePrefix"."_shortname_override ";
         $log->addLine($query);
         $dbHandler->update($query);
@@ -502,7 +505,16 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
+        $query = "CREATE TABLE $stagingTablePrefix"."_suppress_name_listing (
+        id int not null auto_increment,
+        name varchar(100),
+        PRIMARY KEY (id)
+        )
+        ";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
         ##################
         # VIEWS
         ##################

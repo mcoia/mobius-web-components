@@ -132,7 +132,11 @@ jQuery(document).ready(function()
                         var selectHTML = '<select multiple id="select_id_string" data-placeholder="select_placeholder">';
                         for (var branch_pos in branch_obj['branch_order'])
                         {
-                            selectHTML += '<option value="'+branch_obj['branch_order'][branch_pos]+'">'+branch_obj['branch'][branch_obj['branch_order'][branch_pos]]+'</option>\n';
+                            // Make sure that this branch isn't one of those that needs to be suppressed from the display
+                            if(!branch_obj['suppressed_branch'][branch_obj['branch'][branch_obj['branch_order'][branch_pos]]])
+                            {
+                                selectHTML += '<option value="'+branch_obj['branch_order'][branch_pos]+'">'+branch_obj['branch'][branch_obj['branch_order'][branch_pos]]+'</option>\n';
+                            }
                         }
                         selectHTML += '</select>';
                         

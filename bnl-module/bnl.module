@@ -362,6 +362,7 @@ function mobius_bnl_get_all_branches(&$data_array)
     $data_array["cluster"] = array();
     $data_array["branch_to_cluster"] = array();
     $data_array["branch_order"] = array();
+    $data_array["suppressed_branch"] = array();
     $used = array();
     // First get the overall branch names and clusters to which they belong
      $query = "
@@ -397,6 +398,22 @@ function mobius_bnl_get_all_branches(&$data_array)
             $data_array["branch_to_cluster"][$libraryRow["fid"]] = array();
         }
         $data_array["branch_to_cluster"][$libraryRow["fid"]][$libraryRow["cid"]] = 1;
+    }
+
+    // Now gather up the names that should not be displayed
+    $query = "
+       SELECT
+        name
+        FROM
+        mobius_bnl_suppress_name_listing
+        ";
+    $result = db_query($query);
+    while($libraryRow = $result->fetchAssoc())
+    {
+        if(!$data_array["suppressed_branch"][$libraryRow["name"]])
+        {
+            $data_array["suppressed_branch"][$libraryRow["name"]] = 1;
+        }
     }
 }
 
