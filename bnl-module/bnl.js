@@ -181,13 +181,17 @@ jQuery(document).ready(function()
 
                         for (var cluster in clusterSort)
                         {
-                            if(branch_obj['cluster'][clusterSort[cluster]['id']]['type'] == 'sierra')
+                            // Make sure we are not suppose to suppress this cluster name
+                            if(!branch_obj['suppressed_branch'][clusterSort[cluster]['name']])
                             {
-                                selectHTML_cluster += '<option value="'+clusterSort[cluster]['id']+'">'+clusterSort[cluster]['name']+'</option>\n';
-                            }
-                            else
-                            {
-                                selectHTML_system += '<option value="'+clusterSort[cluster]['id']+'">'+clusterSort[cluster]['name']+'</option>\n';
+                                if(branch_obj['cluster'][clusterSort[cluster]['id']]['type'] == 'sierra')
+                                {
+                                    selectHTML_cluster += '<option value="'+clusterSort[cluster]['id']+'">'+clusterSort[cluster]['name']+'</option>\n';
+                                }
+                                else
+                                {
+                                    selectHTML_system += '<option value="'+clusterSort[cluster]['id']+'">'+clusterSort[cluster]['name']+'</option>\n';
+                                }
                             }
                         }
                         selectHTML_cluster += '</select>';
