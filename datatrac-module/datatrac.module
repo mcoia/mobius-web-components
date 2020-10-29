@@ -280,14 +280,25 @@ The Courier Statistics Database provides historical data for courier activity th
   <button type="button" class="btn btn-info" data-toggle="collapse" data-target="#demo">Click here for more information</button>
 <br /><br />
   <div id="demo" class="collapse">
-   <br /> MOBIUS Courier Statistics Database: What You Need to Know<br /><br />
-The Courier Statistics Database provides historical data for courier activity that can be searched and exported according to your needs. Data begins on July 1, 2016, and is updated after the first of every month. <u>Statistics for the current month are <b>not</b> included in the database.</u> Statistics for March, April and May of 2017 are not in the database as during that time STAT changed vendors from Datatrac to Xcelerator.</a>
+  
+  
+ <br />  MOBIUS Courier Statistics Database: What You Need to Know<br /><br />
+ 
+The Courier Statistics Database is an archived data set that is no longer updated.  This database provides historical data for courier activity that can be searched and exported according to your needs. Data begins on July 1, 2016 and runs through March 31, 2020. Statistics for March, April and May of 2017 are not in the database as during that time STAT changed vendors from Datatrac to Xcelerator. If you have any questions about this data set, please contact <a href="mailto:courier@mobiusconsortium.org">courier@mobiusconsortium.org</a>. 
+
+<br /><br />How to Search:<br /><br />
+
+Specify your chosen date range in the indicated fields, then choose your start and end points in the dropdowns below. You may search by library, (terminal entries are for a geographic area), and you may set your institution as either the sending or receiving library. Once the desired date range and your choice of origin and endpoint locations are set, clicking Submit will generate the report. 
+
 <br /><br />
-How to Search:<br /> <br />
-Specify your chosen date range in the indicated fields, then choose your start and end points in the dropdowns below. You may search by library, (terminal entries are for a geographic area), and you may set your institution as either the sending or receiving library. Once the desired date range and your choice of origin and endpoint locations are set, clicking Submit will generate the report.
+
+Reading and Exporting Reports:
+
 <br /><br />
-Reading and Exporting Reports:<br /><br />
-When your report is generated, you will see pickup and delivery location information, the barcode for each bag put in transit, pickup and delivery dates, and transit time information. The database takes into account weekends and holidays (when the courier isn’t running), so along with the total Days in Transit figure, you will also see a breakdown of the number of bisness days versus the number of excluded days for the period of time that the courier handled your materials. Excluded days include weekends, holidays, and non-service days for libraries with less than five day a week delivery. To export your data to a CSV file, click on the link above the data table display.
+
+When your report is generated, you will see pickup and delivery location information, the barcode for each bag put in transit, pickup and delivery dates, and transit time information. The database takes into account weekends and holidays (when the courier isn’t running), so along with the total Days in Transit figure, you will also see a breakdown of the number of business days versus the number of excluded days for the period of time that the courier handled your materials. Excluded days include weekends, holidays, and non-service days for libraries with less than five days a week delivery. To export your data to a CSV file, click on the link above the data table display.
+
+
 <br /><br />
   </div>
 </div>';
