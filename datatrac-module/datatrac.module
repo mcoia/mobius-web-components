@@ -14,7 +14,7 @@ function datatrac_permission()
 function datatrac_menu()
 {
     $items['mcs-display'] = array(
-        'title' => 'MOBIUS Courier Statistics',
+        'title' => 'MOBIUS Courier Statistics (ARCHIVED)',
         'page callback' => 'get_user_page',
         #'page callback' => 'test_select',
         #'page arguments' => array(1),
@@ -270,12 +270,18 @@ function get_user_page()
     }
       
 $about='<div class="container">
-  
+  <div style="
+font-size: 15pt;
+color: #f22477;
+padding: 2em;
+width: 69%;
+line-height: 2em;">
+The Courier Statistics Database provides historical data for courier activity that can be searched and exported according to your needs. Data begins on July 1, 2016 and ended on March 31, 2020 at the outset of the pandemic. Statistics for March, April and May of 2017 are not in the database as during that time STAT changed vendors from Datatrac to Xcelerator.</div>
   <button type="button" class="btn btn-info" data-toggle="collapse" data-target="#demo">Click here for more information</button>
 <br /><br />
   <div id="demo" class="collapse">
    <br /> MOBIUS Courier Statistics Database: What You Need to Know<br /><br />
-The Courier Statistics Database provides historical data for courier activity that can be searched and exported according to your needs. Data begins on July 1, 2016, and is updated after the first of every month. <u>Statistics for the current month are <b>not</b> included in the database.</u> Statistics for March, April and May of 2017 are not in the database as during that time STAT changed vendors from Datatrac to Xcelerator. If you are looking for a bag that is currently outstanding or a transaction that is less than a month old, please contact <a href="mailto:courier@mobiusconsortium.org">courier@mobiusconsortium.org</a>
+The Courier Statistics Database provides historical data for courier activity that can be searched and exported according to your needs. Data begins on July 1, 2016, and is updated after the first of every month. <u>Statistics for the current month are <b>not</b> included in the database.</u> Statistics for March, April and May of 2017 are not in the database as during that time STAT changed vendors from Datatrac to Xcelerator.</a>
 <br /><br />
 How to Search:<br /> <br />
 Specify your chosen date range in the indicated fields, then choose your start and end points in the dropdowns below. You may search by library, (terminal entries are for a geographic area), and you may set your institution as either the sending or receiving library. Once the desired date range and your choice of origin and endpoint locations are set, clicking Submit will generate the report.
