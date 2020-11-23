@@ -361,10 +361,10 @@ jQuery(document).ready(function()
                         for(var plib_pos in plibs)
                         {
                             var plib = plibs[plib_pos];
+                            var l_dedupe = {};
                             for(var month_pos in months)
                             {
                                 var month = months[month_pos];
-                                var l_dedupe = {};
                                 for(var slib in data[type][month][plib])
                                 {
                                     l_dedupe[slib] = 1;
