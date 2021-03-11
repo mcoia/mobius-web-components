@@ -52,7 +52,7 @@ jQuery(document).ready(function()
 
 function IOWACourierLibraryConvertToMilitary(val)
 {
-    var am = val.substring(val.length - 2,val.length);
+    var am = val.replace(/[\s\.\d\:\-]/gi, '').substring(0,2);
     var addNumber = 0;
     var hour = parseInt(val.match(/^([^:]*):.*/)[1]);
     var minute = val.match(/^[^:]*:(\d*).*/)[1];
