@@ -90,7 +90,7 @@ our %knackColMap = (
     'number_of_bags_mobius' => 'number_of_bags',
     'state' => 'state',
     'delivery_code_mobius' => 'delivery_code',
-    'delivery_day_mobius' => 'day',
+    'delivery_day_1_mobius' => 'day',
     'state_courier_pickup_schedule_mobius' => 'stat_courier_pick_up_schedule',
     'hub_number_mobius' => 'hub',
 );
@@ -289,15 +289,31 @@ sub updateColumnsWithKnackData
     alignColumns($answer);
     my %libVals = %{$answer};
     $log->addLine("updateColumnsWithKnackData");
-    $log->addLine(Dumper(\%libVals)) if $debug;
     my $query = "UPDATE $stagingTable set\n";
     my @vars = ();
+    my %friendlyNames = ();
     while ( (my $key, my $value) = each(%libVals) )
     {
         my $dbColName = convertStringToFriendlyColumnName($key);
         $dbColName = $knackColMap{$dbColName} if ($knackColMap{$dbColName});
-        $query .= "$dbColName = ?,\n";
-        push @vars, $value;
+        $friendlyNames{$dbColName} = $key;
+    }
+    $log->addLine(Dumper(\%friendlyNames)) if $debug;
+    $log->addLine(Dumper(\%libVals)) if $debug;
+    while ( (my $key, my $value) = each(%libVals) )
+    {
+        my $dbColName = convertStringToFriendlyColumnName($key);
+        $dbColName = $knackColMap{$dbColName} if ($knackColMap{$dbColName});
+        # hack
+        if($dbColName ne 'delivery_day_2_mobius') #ignoring the second delivery day completely
+        {
+            if($dbColName eq 'day' && $libVals{$friendlyNames{'delivery_day_2_mobius'}} =~ m/\D/ ) #grouping values
+            {
+                $value .= ', '.$libVals{$friendlyNames{'delivery_day_2_mobius'}};
+            }
+            $query .= "$dbColName = ?,\n";
+            push @vars, $value;
+        }
     }
     $query .= "changed = ? ";
     push @vars, "0";
@@ -306,6 +322,8 @@ sub updateColumnsWithKnackData
     $log->addLine($query) if $debug;
     $log->addLine(Dumper(\@vars)) if $debug;
     $dbHandler->updateWithParameters($query,\@vars);
+    undef %friendlyNames;
+    undef @vars;
 }
 
 sub alignColumns
