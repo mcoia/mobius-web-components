@@ -286,7 +286,7 @@ sub handleLandingPage
                 {
                     var thisaction = doms[i].getAttribute('action');
 
-                    if(thisaction.match(/\\/managerep\\/startviews\\/0\\/d\\/table_1x1/g))
+                    if(thisaction.match(/\\/managerep\\/startviews\\/.*?\\/d\\/table_1x1/g))
                     {
                         doms[i].submit();
                         stop = 1;
@@ -321,7 +321,7 @@ sub handleCircStatOwningHome
     my ($self) = shift;
     my $clickAllActivityFirst = shift|| 0;
 
-    my @frameSearchElements = ('Owning\/Home', 'htcircrep\/owning\/\/o\|\|\|\|\|\/');
+    my @frameSearchElements = ('Owning\/Home', 'htcircrep\/owning\/.*?\/o\|\|\|\|\|\/');
 
     if($clickAllActivityFirst)
     {
@@ -336,7 +336,7 @@ sub handleCircStatOwningHome
                     {
                         var thisaction = doms[i].getAttribute('href');
 
-                        if(thisaction.match(/htcircrep\\/activity\\/\\/a0\\|y1\\|s\\|1\\|\\|/g))
+                        if(thisaction.match(/htcircrep\\/activity\\/.*?\\/a0\\|y1\\|s\\|1\\|\\|/g))
                         {
                             doms[i].click();
                             stop = 1;
@@ -366,7 +366,7 @@ sub handleCircStatOwningHome
                 {
                     var thisaction = doms[i].getAttribute('onClick');
 
-                    if(thisaction.match(/htcircrep\\/owning\\/\\/o\\|\\|\\|\\|\\|\\//g))
+                    if(thisaction.match(/htcircrep\\/owning\\/.*?\\/o\\|\\|\\|\\|\\|\\//g))
                     {
                         doms[i].click();
                         stop = 1;
@@ -410,7 +410,7 @@ sub handleLoginPage
         foreach(@forms)
         {
             $thisForm = $_;
-            if($thisForm->get_attribute("action") =~ /\/htcircrep\/\/\-1\/\/VALIDATE/g )
+            if($thisForm->get_attribute("action") =~ /\/htcircrep\/.*?\/VALIDATE/g )
             {
                 my $circActivty = $self->{driver}->execute_script("
                 var doms = document.getElementsByTagName('input');

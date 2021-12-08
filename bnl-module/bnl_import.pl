@@ -156,7 +156,7 @@ sub dataExists
                 $stagingTablePrefix"."_bnl bnl,
                 $stagingTablePrefix"."_cluster cluster
                 WHERE
-                bnl.owning_branch = cluster.id AND
+                bnl.owning_cluster = cluster.id AND
                 cluster.name = '$clusterName' AND
                 bnl.borrow_date = '$_'
                 ";
