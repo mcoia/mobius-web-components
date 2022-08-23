@@ -23,6 +23,8 @@
 'WDMPL','sierra','0','','','','','','','',''
 'CCL','sierra','0','','','','','','','',''
 'SGCL','sierra','0','','','','','','','',''
+'Bettendorf','sierra','0','','','','','','','',''
+'SCCCL','sierra','0','','','','','','','',''
 'Prospector Libraries','sierra','0','','','','','','','',''
 'MOBIUS','innreach','1','https://webaddress.com/olinkpatrep/report1/0//?','','','','','','',''
 'Prospector','innreach','1','https://webaddress.com/olinkpatrep/report1/0//?','','','','','','',''
@@ -280,6 +282,8 @@
 'Springfield-Greene County Library','SGCL'
 'Christian County Library','CCL'
 'Saint Louis University','SLU'
+'Bettendorf Public Library','Bettendorf'
+'St. Charles City-County Library','SCCCL'
 
 [normalize_branch_name]
 'SWAN','MOBIUS Swan Cluster'
@@ -461,6 +465,13 @@
 'University of Missouri-Law','University of Missouri-Columbia Law'
 'crl','Center for Research Libraries'
 'Baptist Theological Seminary','Southwestern Baptist Theological Seminary'
+'A.T. Still University--California','A.T. Still University'
+'Clever Community Branch Library','Christian County Library'
+'Nixa Community Branch Library','Christian County Library'
+'Ozark Community Branch Library','Christian County Library'
+'Sparta Community Branch Library','Christian County Library'
+'Fair Grove Branch','Springfield-Greene County Library'
+'Midtown Carnegie Branch Library','Springfield-Greene County Library'
 
 
 [shortname_override]

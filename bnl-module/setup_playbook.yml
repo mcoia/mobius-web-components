@@ -91,9 +91,9 @@
     register: geckodriverexists
   - stat: path={{selenium_folder}}
     register: seleniumexists
-  # - name: download and expand Gecko driver
-    # shell: wget {{geckodriver}} && tar xvzf {{geckofile}} && mv geckodriver {{geckodriverdestination}}
-    # when: geckodriverexists.stat.isfile is not defined
+  - name: download and expand Gecko driver
+    shell: wget {{geckodriver}} && tar xvzf {{geckofile}} && mv geckodriver {{geckodriverdestination}}
+    when: geckodriverexists.stat.isfile is not defined
   - name: Make selenium folder
     become: true
     when: seleniumexists.stat.isdir is not defined
