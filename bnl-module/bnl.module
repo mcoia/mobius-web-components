@@ -32,7 +32,8 @@ function mobius_bnl_display()
   $page = array (
     '#markup' =>
     '
-    <div class="messages status">If this is your first time here, please <a id="firsttimebutton" href="#instructions" >read the instructions</a>.</div>
+    <div class="messages status">If this is your first time here, please <a id="firsttimebutton" href="#instructions" >read the instructions</a>.<br />
+    <span style="font-weight: bold">We are working on updating the Advanced filtering tool. Please use the Basic filter and/or contact the MOBIUS help desk for assistance.</span></div>
     <span id="mobius_bnl_page_is_loaded"></span>
     <div id="bnl_panel">
     <div id="bnl_filter_select_master_container">
@@ -46,9 +47,11 @@ function mobius_bnl_display()
             </div>
         </div> <!-- bnl_basic_filter_container -->
 
+<!-- disabling advanced filters until we debug it -->
+
         <div class="bnl_filter_switcher_container">
             <a id="filter_switcher_button">Show <span id="filter_switcher_word">Advanced</span> filters</a>
-        </div> <!-- bnl_basic_filter_container -->
+        </div> <!-- bnl_basic_filter_container FIX THIS ENDING TAG WHEN RE-ENABLING -->
 
         <div class="bnl_advanced_filter_container hide">
         <div class="bnl_title_container">Lending Library</div>
@@ -763,14 +766,18 @@ function mobius_bnl_get_bnl_base_branches_from_clause($fromClause, &$vals, $bran
 function mobius_bnl_figure_specified_branches($branchSelections)
 {
     $borrowing = 0;
+    $owning = 0;
     foreach ($branchSelections as $key => $value)
     {
         if(strlen($value) > 0)
         {
- 
             if(preg_match("/borrowing/", $key))
             {
                 $borrowing = 1;
+            }
+            else if(preg_match("/own/", $key))
+            {
+                $owning = 1;
             }
         }
     }
