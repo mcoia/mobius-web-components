@@ -10,6 +10,7 @@
 ps -ef | grep firefox | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 ps -ef | grep Xvfb | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 ps -ef | grep selenium | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+ps -ef | grep gecko | grep -v grep | awk '{print $2}' | xargs sudo kill -9
 
 sleep 5
 
@@ -29,15 +30,17 @@ sleep 10
 # Wipe out the screenshots from last time
 rm screenshots/*
 
+# ./bnl_import.pl --log /mnt/evergreen/tmp/bnl/bnl_log.log --drupal-config settings.php --dbSeed db_seed.db --recreateDB --debug --blindDate --monthsBack 18
+# ./bnl_import.pl --log /home/ma/bnl/bnl_log.log --drupal-config settings.php --debug --blindDate --monthsBack 1 --specificCluster bridges --specificMonth 2020-1-01
+
 # Test DB run, reseed
 # ./bnl_import.pl --log /home/ma/bnl/bnl_log.log --drupal-config /backups/sites/dev.mobiusconsortium.org/sites/default/settings.php --dbSeed db_seed.db --recreateDB --debug --blindDate --monthsBack 3
 
 # Production Manual run, reseed DB
-# ./bnl_import.pl --log /home/ma/bnl/bnl_log.log --drupal-config /production/sites/default/settings.php --dbSeed db_seed.db --recreateDB --debug --blindDate --monthsBack 3
+# ./bnl_import.pl --log /home/ma/bnl/bnl_log.log --drupal-config /production/web/sites/default/settings.php --dbSeed db_seed.db --recreateDB --debug --blindDate --monthsBack 3
 
 # Production monthly run
-./bnl_import.pl --log /tmp/bnl_log.log --drupal-config /production/sites/default/settings.php --monthsBack 1
-
+./bnl_import.pl --log /tmp/bnl_log.log --drupal-config /production/web/sites/default/settings.php --monthsBack 1
 
 
 # Make sure all the leftover stuff isn't running

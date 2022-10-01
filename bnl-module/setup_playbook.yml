@@ -16,6 +16,61 @@
     package:
       name: libpq-dev
       state: present
+  - name: Making sure libmysqlclient is installed
+    package:
+      name: libmysqlclient-dev
+      state: present
+  - name: Making sure mysql server is installed
+    package:
+      name: mysql-server
+      state: present
+  - name: Making sure mysql client is installed
+    package:
+      name: mysql-client
+      state: present
+  - name: perl mysql connector
+    package:
+      name: libclass-dbi-mysql-perl
+      state: present
+  - name: perl xml simple
+    package:
+      name: libxml-simple-perl
+      state: present
+  - name: perl postgres connector
+    package:
+      name: libdbd-pg-perl
+      state: present
+  - name: xdg-utils
+    package:
+      name: xdg-utils
+      state: present
+  - name: perl mysql connector
+    package:
+      name: libnet-z3950-zoom-perl
+      state: present
+  - name: create websocketd start script
+    become: true
+    file:
+      path: ~/.my.cnf
+      state: touch
+      owner: root
+      group: root
+      mode: '0644'
+  - name: Building MYSQL local User environment file - client line
+    become: true
+    lineinfile: 'dest=~/.my.cnf state=present regexp="client" line="[client]"'
+  - name: Building MYSQL local User environment file - host line
+    become: true
+    lineinfile: 'dest=~/.my.cnf state=present regexp="host" line="host={{mysql_db_host}}"'
+  - name: Building MYSQL local User environment file - port line
+    become: true
+    lineinfile: 'dest=~/.my.cnf state=present regexp="port" line="port={{mysql_db_port}}"'
+  - name: Building MYSQL local User environment file - user line
+    become: true
+    lineinfile: 'dest=~/.my.cnf state=present regexp="user" line="user={{mysql_master_user}}"'
+  - name: Building MYSQL local User environment file - password line
+    become: true
+    lineinfile: 'dest=~/.my.cnf state=present regexp="password" line="password={{mysql_master_password}}"'
   - name: Installing CPAN packages File::Path
     become: true
     ignore_errors: yes

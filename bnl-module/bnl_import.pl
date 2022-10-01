@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # /production/sites/default/settings.php
 
-use lib qw(../); 
+use lib qw(../ ./); 
 use Loghandler;
 use Data::Dumper;
 use File::Path qw(make_path remove_tree);

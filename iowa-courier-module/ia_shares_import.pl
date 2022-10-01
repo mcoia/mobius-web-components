@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # /production/sites/default/settings.php
 
-use lib qw(../); 
+use lib qw(../ ./); 
 use Loghandler;
 use Data::Dumper;
 use File::Path qw(make_path remove_tree);
@@ -344,6 +344,7 @@ sub alignColumns
                 AND TABLE_NAME = '$stagingTable' 
                 AND COLUMN_NAME = '$friendlyColumnName'
                 ";
+            $log->addLine($query) if $debug;
             my @res = @{$dbHandler->query($query)};
             if($#res == -1)
             {
@@ -476,6 +477,8 @@ sub unEscapeData
 {
     my $d = shift;
     $d =~ s/\\'/'/g;
+    $d =~ s/[^[:ascii:]\x91-\x94\x96\x97]//g;
+    $d =~ s/\xA0//g;
     return $d;
 }
 
@@ -809,6 +812,8 @@ sub setupDB
     undef $answers{'port'} if length($answers{'port'}) == 0;
     $databaseName = $answers{'database'};
     $dbHandler = new DBhandler($answers{'database'},$answers{'host'},$answers{'username'},$answers{'password'},$answers{'port'}||"3306","mysql");
+    my @empty = ();
+    createStagingTable(\@empty);
 }
 
 sub createStagingTable
@@ -849,10 +854,20 @@ sub convertStringToFriendlyColumnName
     my $st = shift;
     my @previousCols = @{$_[0]};
     my $ret = lc $st;
+    print "Starting: $ret\n" if $debug;
+    # remove non-ascii characters that might show up
+    $ret =~s/[^[:ascii:]\x91-\x94\x96\x97]//g;
+    $ret =~s/\xA0//g;
     $ret =~s/^\s*//g;
     $ret =~s/\s*$//g;
+    $ret =~s/\n*//g;
+    $ret =~s/\t*//g;
     $ret =~s/\s/_/g;
+    $ret =~s/_*$//g;
     $ret =~s/[\-\.'"\[\]\{\}\/\(\)\?\!\>\<]//g;
+    $ret =~s/\s*$//g;
+    $ret =~s/_*$//g;
+    print "Ending: $ret\n" if $debug;
     my $first = 1;
     my $exists = 0;
     while($first || $exists)
@@ -867,7 +882,7 @@ sub convertStringToFriendlyColumnName
             $ret = '';
             $ret.= $_."_" foreach(@tok);            
             $rep_num++;
-            $ret .= $rep_num;            
+            $ret .= $rep_num;
         }
         $first = 0;
     }

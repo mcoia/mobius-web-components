@@ -1,9 +1,36 @@
 ---
-  geckodriver: https://github.com/mozilla/geckodriver/releases/download/v0.26.0/geckodriver-v0.26.0-linux64.tar.gz
-  geckofile: geckodriver-v0.26.0-linux64.tar.gz
+# WARNING!
+# Newer versions of Ubuntu will install Firefox via Snap. Selenium (more specifically geckodriver) will not work with that.
+# Please install Firefox manually, there are some human interactions with these steps:
+# https://www.omgubuntu.co.uk/2022/04/how-to-install-firefox-deb-apt-ubuntu-22-04
+# sudo snap remove firefox
+# sudo add-apt-repository ppa:mozillateam/ppa
+# echo '
+# Package: *
+# Pin: release o=LP-PPA-mozillateam
+# Pin-Priority: 1001
+# ' | sudo tee /etc/apt/preferences.d/mozilla-firefox
+# sudo apt install firefox
+# WARNING!
+# NOTES on creating mysql user
+# CREATE USER 'user'@'localhost' IDENTIFIED BY 'password';
+# GRANT ALL ON *.* TO 'user'@'localhost' WITH GRANT OPTION;
+# newer versions of mysql need this global variable set:
+# log_bin_trust_function_creators = 1
+# vi /etc/mysql/mysql.conf.d/mysqld.cnf
+# add these lines:
+# [mysqld]
+# log_bin_trust_function_creators = 1
+
+  geckodriver: https://github.com/mozilla/geckodriver/releases/download/v0.31.0/geckodriver-v0.31.0-linux64.tar.gz
+  geckofile: geckodriver-v0.31.0-linux64.tar.gz
   geckodriverdestination: /usr/bin/geckodriver
 ## This is from 
 ## https://www.seleniumhq.org/download/
-  selenium_download: https://selenium-release.storage.googleapis.com/3.141/selenium-server-standalone-3.141.59.jar
+  selenium_download: https://selenium-release.storage.googleapis.com/3.9/selenium-server-standalone-3.9.1.jar
   selenium_folder: /home/ma/iowa_courier_data_import/selenium
+  mysql_master_user: username
+  mysql_master_password: password
+  mysql_db_host: localhost
+  mysql_db_port: 3306
 ...
