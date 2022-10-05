@@ -12,10 +12,6 @@ is intended for MOBIUS members and Prospector partner libraries.</h5>
 </div>
 
 [//]: # (// screen shot here... )
-<div align="center">
-<img width="200" src="img/mobius-mark.jpeg"/>
-</div>
-
 ## Installation
 
 This is a Drupal Module & requires Drupal version 9+
