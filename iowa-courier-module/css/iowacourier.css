@@ -1,0 +1,106 @@
+
+.card-pane {
+  border: 3px solid grey;
+  border-radius: 10px;
+  position: absolute;
+  width: 90%;
+  padding: 2%;
+  left: 5%;
+  right: 5%;
+  z-index: 1000;
+  top: 16%;
+  background-color: white;
+}
+
+.card-wrapper {
+  background-color: white;
+  margin: 12px;
+}
+
+.card-pane-inner {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.card-wrapper-label {
+  font-color: black;
+  font-weight: bold;
+  font-size: 14pt;
+}
+
+.card-wrapper-data {
+}
+
+.card-pane-close {
+  position: absolute;
+  right: 20px;
+  top: 10px;
+  color: #808080;
+  font-size: 38px;
+  cursor: pointer;
+}
+
+.card-pane-close:hover {
+  color: #808080;
+}
+
+.group-card-wrapper {
+  min-width: 25%;
+}
+
+.group-card-wrapper-title {
+  font-size: 18pt;
+  text-align: center;
+  border-bottom: 1px solid blue;
+  width: 90%;
+}
+
+.card-title {
+  font-size: 40pt;
+  text-align: center;
+  font-weight: bold;
+  border-bottom: 1px solid black;
+}
+
+.iowacourier-map-display-map {
+  min-width: 54%;
+}
+
+.iowacourier-map-display-table {
+  width: 42%;
+  padding: 21px 10px 0px 10px;
+}
+
+.iowacourier-waypoint-library-cell {
+}
+
+.iowacourier-waypoint-library-cell-name {
+  font-weight: bold;
+  font-size: 120%;
+}
+
+.iowacourier-waypoint-library-cell-address {
+}
+
+.iowacourier-waypoint-stop-cell {
+  text-align: center;
+  color: #ea4335;
+  font-weight: bold;
+  font-size: 20pt;
+}
+
+.iowacourier-waypoint-time-cell-data {
+}
+
+.iowacourier-map-lib-table th {
+  text-align: center;
+  width: auto;
+}
+
+.iowacourier-map-lib-table {
+  width: auto;
+}
+
+@media only screen and (max-width: 1250px) {
+
+}

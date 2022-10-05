@@ -1,0 +1,284 @@
+<div class="messages status">If this is your first time here, please <a id="firsttimebutton" href="#instructions">read
+    the instructions</a>.
+  <br/>
+  <span style="font-weight: bold">We are working on updating the Advanced filtering tool. Please use the Basic filter and/or contact the MOBIUS help desk for assistance.</span>
+</div>
+<span id="mobius_bnl_page_is_loaded"></span>
+<div id="bnl_panel">
+  <div id="bnl_filter_select_master_container">
+
+    <div class="bnl_basic_filter_container">
+      <div class="bnl_title_container">Library Selection</div>
+      <div class="bnl_dropdown_wrapper">
+        <div id="bnl_basic_filter_branch_owning" class="bnl_dropdown">
+        </div>
+        LIBRARY
+      </div>
+    </div> <!-- bnl_basic_filter_container -->
+
+    <div class="bnl_filter_switcher_container">
+      <a id="filter_switcher_button">Show <span id="filter_switcher_word">Advanced</span> filters</a>
+    </div> <!-- bnl_basic_filter_container -->
+
+    <div class="bnl_advanced_filter_container hide">
+      <div class="bnl_title_container">Lending Library</div>
+      <div class="bnl_dropdown_wrapper">
+        <div id="bnl_filter_branch_owning" class="bnl_dropdown">
+        </div>
+        LIBRARY
+      </div>
+      <div class="bnl_dropdown_wrapper">
+        <div id="bnl_filter_cluster_owning" class="bnl_dropdown">
+        </div>
+        CLUSTER/STANDALONE
+      </div>
+      <div class="bnl_dropdown_wrapper">
+        <div id="bnl_filter_system_owning" class="bnl_dropdown">
+        </div>
+        SYSTEM
+      </div>
+    </div> <!-- bnl_advanced_filter_container -->
+
+    <div class="bnl_advanced_filter_container hide">
+      <div class="bnl_title_container">Borrowing Library</div>
+      <div class="bnl_dropdown_wrapper">
+        <div id="bnl_filter_branch_borrowing" class="bnl_dropdown">
+        </div>
+        LIBRARY
+      </div>
+      <div class="bnl_dropdown_wrapper">
+        <div id="bnl_filter_cluster_borrowing" class="bnl_dropdown">
+        </div>
+        CLUSTER/STANDALONE
+      </div>
+      <div class="bnl_dropdown_wrapper">
+        <div id="bnl_filter_system_borrowing" class="bnl_dropdown">
+        </div>
+        SYSTEM
+      </div>
+    </div> <!-- bnl_advanced_filter_container -->
+
+    <div class="bnl_advanced_filter_container hide">
+      <!-- <input type="checkbox" name="show-zeros" id="show_zeros"></input><label id="show_zeros_label" for="show_zeros">Show Zeros</label> -->
+    </div> <!-- bnl_advanced_filter_container -->
+
+    <div id="bnl_date_div">
+      <div id="date_range_title">Date Range</div>
+      <div class="date_dropdown_wrapper">
+        <label for="date_from">From</label>
+        <input class="chosen_date_display" id="date_from"/>
+        <div class="date_dropdown" id="date_from_d" pop="#date_from"></div>
+      </div>
+      <div class="date_dropdown_wrapper">
+        <label for="date_to">To</label>
+        <input class="chosen_date_display" id="date_to"/>
+        <div class="date_dropdown" id="date_to_d" pop="#date_to"></div>
+      </div>
+    </div> <!-- bnl_date_div -->
+
+    <div id="bnl_submit_container">
+      <div id="bnl_submit_button">Get Results!</div>
+    </div>
+
+  </div> <!-- bnl_filter_select_master_container -->
+  <div id="bnl_data_tables">
+
+    <div id="bnl_my_lending_div"></div>
+
+    <div id="bnl_my_lending_percentage_div"></div>
+
+    <div id="bnl_my_borrowing_div"></div>
+
+    <div id="bnl_my_borrowing_percentage_div"></div>
+
+    <div id="bnl_lib_to_lib_div"></div>
+
+  </div>
+  <div id="bnl_pie"></div>
+
+</div> <!-- bnl_panel -->
+
+<div id="instructions_show_hide"><a href="#instructions" id="instructions_show_hide_a">Show/hide instructions</a></div>
+<div class="bnl_instructions" style="display: none">
+
+  <h2><a name="instructions"></a>Instructions</h2>
+  <h3>Purpose</h3>
+  <p>
+    This tool is used to explore the Borrowing and Lending statistics for the MOBIUS consortium participating libraries.
+    You can use this tool to explore the data at a glance and/or produce spreadsheet reports.
+  </p>
+  <h3>Basics</h3>
+  <ol>
+    <li><a href="#choosingdate">Choose a date</a></li>
+    <li>
+      <a href="#choosinglibrary_basic">Choose your library</a>
+      <ul>
+        <li><a href="#choosinglibrary_advanced">or* use advanced filters</a></li>
+      </ul>
+    </li>
+    <li>Click "Get Results!"</li>
+    <li><a href="#exploreresults">Explore the results</a></li>
+    <li><a href="#downloadresults">Download the results</a></li>
+  </ol>
+
+
+  <h3><a name="choosinglibrary"></a>
+    Choosing a library</h3>
+
+  <h4><a name="choosinglibrary_basic"></a>Basic library selection</h4>
+  <p>
+    Click into the search box and begin typing the name of your library. You will be presented with a list of matching
+    libraries. Click on your library.
+    You are only allowed to choose one library. If you want to specify more, please use the <a
+      href="#choosinglibrary_advanced">advanced filters</a>.<br/>
+    <img src="{{ path }}/img/bnl_library_dropdown_list_one_selected.png"
+         alt="Dropdown list with one selected and option is now greyed out">
+  </p>
+
+  <h4><a name="choosinglibrary_advanced"></a>Advanced library selection</h4>
+
+  <p>Advanced filters allow you to choose more than one library.</p>
+  <p>You do not need to make a selection from any of the dropdown menus. Choosing nothing means "all" options are
+    included.</p>
+  <p>When you click into any of the selection boxes, you will see the choices dropdown below your cursor:</p>
+  <img src="{{ path }}/img/bnl_library_dropdown_list.png"
+       alt="Dropdown list showing listing of libraries with search box">
+  <p>You may choose an option by clicking it. <b>You may search for an option by typing partial words in the box above
+      the list.</b> After you make a selection:</p>
+  <img src="{{ path }}/img/bnl_library_dropdown_list_one_selected.png"
+       alt="Dropdown list with one selected and option is now greyed out">
+  <p>You may click into the dropdown box again and make additional selections. You are only allowed to choose the same
+    option once.</p>
+  <div class="messages status">NOTE: After you choose an option from one dropdown, you will not be allowed to choose an
+    option from another dropdown in the same group. For example, if you make a selection in the Library field, you will
+    not be able to make a selection under Cluster or System. You may make additional selections under Library.
+  </div>
+  <p>Choosing options from the "Cluster" or "System" dropdowns will automatically include any libraries that are
+    connected to that selection. You may choose more than one.</p>
+
+  <h3><a name="choosingdate"></a>
+    Choosing a date</h3>
+  <p>Dates are expressed in terms of "whole months"</p>
+  <ol>
+    <li>Choose a month for "From" and "To"
+      <br>
+      <img src="{{ path }}/img/bnl_calendar.png" alt="Date Range widget">
+    </li>
+    <li>The tool will not allow you to choose months that do not have data in the database.</li>
+    <li>The "From" month needs to be before or the same as the "To" month. The interface enforces this.</li>
+    <li>You can change the year quicker by clicking on the "Year" button highlighted above in red. You should see a year
+      selector:
+      <br>
+      <img src="{{ path }}/img/bnl_calendar_year.png" alt="Date Range widget showing year selection">
+    </li>
+  </ol>
+
+
+  <h3><a name="exploreresults"></a>
+    Explore the results</h3>
+  <p>After the data has been populated from the server, you will see should see at least five result tables.</p>
+  <div class="messages status">NOTE: If the server does not contain data for your selected criteria, the corresponding
+    result table will be omitted from the results.
+  </div>
+  <ol>
+    <li>
+      Lending Summary
+      <br/><img src="{{ path }}/img/bnl_lending_summary.png" alt="Lending summary header image"><br/>
+      <ul>
+        <li>
+          This table shows total items <b>lent</b> by the included librar(ies).
+          It provides a sum for each library and each month within the selected range (if data exists).
+          If the month range exceeds the width of the browser screen, the display will be truncated. You will be
+          prompted to download the spreadsheet to see the whole data set.
+        </li>
+      </ul>
+    </li>
+    <li>
+      Lending Percentage Summary
+      <br/><img src="{{ path }}/img/bnl_lending_percentage.png" alt="Lending percentage header image"><br/>
+      <ul>
+        <li>
+          This table provides the contribution percentage of each library in your search critera.
+          The percentage is shown in terms of percentage <b>lent</b> as compared to all libraries in each system group.
+          (i.e., MOBIUS or Prospector)
+        </li>
+      </ul>
+    </li>
+    <li>
+      Borrowing Summary
+      <br/><img src="{{ path }}/img/bnl_borrowing_summary.png" alt="Borrowing summary header image"><br/>
+      <ul>
+        <li>
+          This table shows total items <b>borrowed</b> by the included librar(ies).
+          It provides a sum for each library and each month within the selected range (if data exists).
+          If the month range exceeds the width of the browser screen, the display will be truncated. You will be
+          prompted to download the spreadsheet to see the whole data set.
+        </li>
+      </ul>
+    </li>
+    <li>
+      Borrowing Percentage Summary
+      <br/><img src="{{ path }}/img/bnl_borrowing_percentage.png"
+                alt="Borrowing percentage header image"><br/>
+      <ul>
+        <li>
+          This table provides the contribution percentage of each library in your search critera.
+          The percentage is shown in terms of percentage <b>borrowed</b> as compared to all libraries in each system
+          group. (i.e., MOBIUS or Prospector)
+        </li>
+      </ul>
+      <!--  disabling this until further notice
+      <li>
+      "Details" tables
+      <br /><img src="{{ path }}/img/bnl_detail_table.png" alt="Details table header image"><br />
+      <p>This table shows the details. All the search included libraries who participated as a borrower are diplayed along the Y axis.
+      The lending libraries are displayed along the X axis. It shows the total of items lent for each possible combination of libraries within the selected criteria.
+      <div class="messages status">NOTE: You will see a new table for each month included in your search range.</div>
+      </p>
+      </li>
+      </ol>
+      -->
+      <p>
+        <b>A word about using the tools provided by each table</b>
+        <br/>
+      <p>Each table can be <b>searched</b>
+        <br/><img src="{{ path }}/img/bnl_table_search_box.png"
+                  alt="Result table search box highlighted"><br/>
+        As you type into the searchbox, the table will immediately begin to filter the results to match your criteria.
+        All columns are searched.
+      </p>
+      <p>Each table can display more <b>results per page</b>
+        <br/><img src="{{ path }}/img/bnl_table_per_page.png"
+                  alt="Result table results per page shown"><br/>
+        Click the dropdown menu and choose the desired number of results you would like the table to display at once.
+      </p>
+      <p>Each table has <b>pagination</b>
+        <br/><img src="{{ path }}/img/bnl_table_pagination.png" alt="Result table showing pagination"><br/>
+        If the results do not fit onto your specified number of results per page, you will need to page through. Click
+        on the page number and/or the "Next" and "Previous" buttons.
+      </p>
+      <p>Each table can be <b>sorted by column(s)</b>
+        <br/><img src="{{ path }}/img/bnl_table_sort.png"
+                  alt="Result table showing clickable column headers and sort arrow indication"><br/>
+        Click on a column header in order to sort by that column. The faint arrows next to each column header indicate
+        the direction of the sort (shown here in red).
+        <br/>
+        You can sort by <b>multiple</b> columns. Do this by first sorting by one column, then hold the &lt;SHIFT&gt; key
+        and click another column.
+      </p>
+
+      <h3><a name="downloadresults"></a>
+        Download the results</h3>
+      <p>You may download the results of any table. Each table contains a clickable link labeled "Download
+        Spreadsheet".
+        When clicked, you will be prompted to download a CSV file. This file may be opened with Microsoft Excel or Libre
+        Calc or any other spreadsheet application.
+      <div class="messages status">NOTE: The spreadsheet will contain <b>ALL</b> of the results of the table regardless
+        of any search you may have performed on it
+      </div>
+      </p>
+    </li>
+  </ol>
+</div>
+
+{{ attach_library('bnl/bnl') }}

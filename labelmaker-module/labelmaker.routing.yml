@@ -1,0 +1,7 @@
+labelmaker:
+  path: '/labelmaker'
+  defaults:
+    _controller: 'Drupal\labelmaker\Controller\LabelMakerController::getTwigTemplate'
+    _title: 'MOBIUS Label Maker Module'
+  requirements:
+    _permission: 'access content'

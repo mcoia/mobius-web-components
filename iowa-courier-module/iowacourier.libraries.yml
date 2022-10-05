@@ -1,0 +1,9 @@
+iowacourier:
+  version: 2.0
+  css:
+    theme:
+      css/iowacourier.css: { }
+  js:
+    js/iowacourier.js: { }
+    #    https://maps.googleapis.com/maps/api/js?key=AIzaSyAmPDE5_oFVJ22qY5IkoAJ_eQ-XJNKOlwM: { type: external }
+    https://maps.googleapis.com/maps/api/js?key=AIzaSyAmPDE5_oFVJ22qY5IkoAJ_eQ-XJNKOlwM: { type: external }

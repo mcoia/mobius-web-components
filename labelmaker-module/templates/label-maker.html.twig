@@ -1,0 +1,68 @@
+{{ attach_library('labelmaker/chosen') }}
+{{ attach_library('labelmaker/chosen.jquery') }}
+ {{ attach_library('labelmaker/labelmaker') }}
+{# {{ attach_library('labelmaker/filter_options') }} #}
+
+<div class="labelmaker-status">If this is your first time here, please <a href="#instructions">read the instructions</a>
+</div>
+
+<form target="_blank" id="labelForm" name="control_panel" method="post"
+      action="{{ path }}/src/PrintLabels/PrintLabels.php">
+
+  {# This is our select dropdowns From & TO #}
+  {{ FROMSelectFormElement|raw }}
+  {{ TOSelectFormElement|raw }}
+
+  <p id="error-message" class="text-danger"></p>
+
+  <br/><label for="quantity">Number of labels for each "To:" address:</label><br/>
+
+  <input class="text form-control" type="text" name="quantity" id="quantity" value="1"/>
+
+  <p class="mt-3">If you would like to print a full page, enter "4". Selecting multiple "To:" addresses will then
+    generate full pages
+    of each location.
+    <strong>Important!</strong> for labels with barcodes only print 1 copy of the resulting file, and do not make
+    photocopies of labels.
+    Most labels generate barcodes that are unique in the system (IA Shares labels do not use barcodes), and creating
+    duplicate barcodes will
+    cause problems. If you would like, for instance, 3 pages of the same label, enter "12". Want 4 pages? Enter "16".
+    And so on.
+  </p>
+
+</form>
+
+<button class="label-maker-btn">Make Labels</button>
+
+<h2 class="font-weight-inherit"><a name="instructions"></a>Instructions</h2>
+<p>
+  The label maker is intended for MOBIUS members and the Iowa partner libraries. If you are not a member or partner
+  please contact your organization for help.
+</p>
+<ol>
+  <li>Select your institution name in the first dropdown menu. The dropdown presents a search box to filter the results,
+    and the form will remember your last selection.
+  </li>
+  <li>Select as many destination names as you wish in the second box, the "To:" section. Clicking on the field will show
+    a list of all available libraries. Begin typing the name of the library or it\'s short code to narrow the list. Once
+    you locate the library, clicking the name will add it to the list of libraries you are making labels for. If you
+    would like to remove a library, click the "X" to the right of it\'s name. (The list can also be driven purely by
+    keyboard, but that exercise is left to the reader)
+  </li>
+  <li>Enter the number of labels you would like to print for each location selected in the "To:" box.</li>
+  <li>When you are done with your selections, click the "Make Labels" button.</li>
+</ol>
+<h3 class="text-center m-5"><a href="https://vimeo.com/509947840">&gt;&gt;View MOBIUS Label Maker training
+    video&lt;&lt;</a></h3>
+<h3>What happens when I click the "Make Labels" button?</h3>
+<p>When you click the "Make Labels" button, a PDF will be generated based on your selection. The PDF will be directed to
+  your browser.</p>
+<p><a href="http://en.wikipedia.org/wiki/List_of_PDF_software">List of pdf software</a></p>
+<h3>Label Size</h3>
+<p>This application generates a 2x2 grid of labels on 11inx8.5in(landscape letter) paper.</p>
+<h3>Editing and Updating the MOBIUS Label Maker</h3>
+<p><a href="https://mobiusconsortium.org/node/1364">Detailed information</a> on how library information is formatted in
+  the label maker and instructons for requesting changes. </p>
+<div class="labelmaker-messages">If you encounter any difficulty in using this form, please <a
+    href="mailto:help@mobiusconsortium.org?subject=Label%20maker%20issue">submit a helpdesk ticket</a>
+</div>

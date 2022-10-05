@@ -1,0 +1,21 @@
+bnl:
+  path: '/borrowing_n_lending'
+  defaults:
+    _controller: 'Drupal\bnl\Controller\BNLController::getTwigTemplate'
+    _title: 'Borrowing and Lending'
+  requirements:
+    _permission: 'access content'
+
+bnl.get:
+  path: '/borrowing_n_lending_get'
+  defaults:
+    _controller: '\Drupal\bnl\Service\BNLService::mobius_bnl_postback'
+  requirements:
+    _permission: 'access content'
+
+#bnl.test:
+#  path: '/borrowing_n_lending/test'
+#  defaults:
+#    _controller: '\Drupal\bnl\Service\BNLService::test'
+#  requirements:
+#    _permission: 'access content'

@@ -1,0 +1,10 @@
+labelmaker:
+  version: 2.0
+  css:
+    theme:
+      css/chosen.css: { }
+      css/labelmaker.css: { }
+
+  js:
+    js/chosen.jquery.js: { }
+    js/labelmaker.js: { }

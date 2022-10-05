@@ -1,0 +1,7 @@
+iowacourier:
+  path: '/iowacourier'
+  defaults:
+    _controller: 'Drupal\iowacourier\Controller\IowaCourierController::getTwigTemplate'
+    _title: 'IOWA Courier Network'
+  requirements:
+    _permission: 'access content'

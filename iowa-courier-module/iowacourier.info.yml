@@ -1,0 +1,6 @@
+name: Iowa Courier 2
+type: module
+description: 'IOWA Courier Network'
+package: Custom
+version: 2.0
+core_version_requirement: ^9 || ^10

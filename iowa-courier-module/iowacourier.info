@@ -1,4 +1,0 @@
-; $Id$
-name = IOWACourier
-description = A module that creates the view to the data from IOWA.
-core = 7.x

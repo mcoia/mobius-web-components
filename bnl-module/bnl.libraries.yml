@@ -1,0 +1,17 @@
+bnl:
+  version: 2.0
+  css:
+    theme:
+      css/MonthPicker.min.css: { }
+      css/jquery-ui.min.css: { }
+      css/jquery.ui.theme.min.css: { }
+      css/chosen.css: { }
+      css/daterangepicker.css: { }
+      css/bnl.css: { }
+  js:
+    js/moment.min.js: { }
+    js/jquery-ui.min.js: { }
+    js/chosen.jquery.js: { }
+    js/daterangepicker.min.js: { }
+    js/MonthPicker.min.js: { }
+    js/bnl.js: { }
