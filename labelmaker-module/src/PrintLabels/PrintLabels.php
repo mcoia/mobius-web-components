@@ -1,5 +1,6 @@
 <?php
 /** @noinspection PhpArrayShapeAttributeCanBeAddedInspection */
+
 ob_start();
 
 require_once 'lib/fpdf/fpdf.php';
@@ -61,14 +62,18 @@ $shipFromJSON = $_POST['jsonFrom'];
 
 $totalPrintLabels = $_POST['quantity'];
 
+
+$shippingService = new ShippingService($shipFromJSON, $shipToJSONArray);
+
 // build our pdf generator & print the labels
 $labelService = new LabelService(
   $labelRegistry,
-  new ShippingService($shipFromJSON, $shipToJSONArray),
+  $shippingService,
   new FPDFLabelMaker()
 );
 
-
 $labelService->printLabels($totalPrintLabels);
+
+setcookie('labelFrom', $shippingService->ShipFROM->id, time() + (60 * 60 * 24 * 365), '/');
 
 ob_end_flush();

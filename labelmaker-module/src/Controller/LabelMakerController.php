@@ -22,13 +22,16 @@ class LabelMakerController extends ControllerBase {
   // HTML Element, This is our select form element.
   private function buildSelectFormElement($list_name, $list_label, $select_multiple = "", $required = ''): string {
 
-    //    $mco_last_from_id = $_COOKIE['labelFrom'];
-    $mco_last_from_id = 0; // <--- TODO: DEBUG! DELETE THIS!
+
+    $mco_last_from_id = 0;
+    if (isset($_COOKIE['labelFrom'])) {
+      $mco_last_from_id = $_COOKIE['labelFrom'];
+    }
 
     $institutions = $this->getInstitutionalListFromDatabase();
 
     // begin the select list
-    $html = "<p>$list_label Address:   <em><small>(required)</small></em></p><select class='$required chosen-select form-control'";
+    $html = "<p>$list_label Address: <em><small>(required)</small></em></p><select class='$required chosen-select form-control'";
 
     if ($select_multiple == "") {
       $html .= "name='$list_name' id='$list_name' data-placeholder='Select a FROM address' tabindex='1'>\n";
@@ -69,7 +72,7 @@ class LabelMakerController extends ControllerBase {
 
       // check to see if the mco_last_from_id cookie equals this node id
       if ($list_label == "FROM" && $mco_last_from_id == $institutionID) {
-        $html = $html . "selected ";
+        $html = $html . " selected ";
       }
 
       $html = $html . "data-permitted-to='$permittedTo' ";

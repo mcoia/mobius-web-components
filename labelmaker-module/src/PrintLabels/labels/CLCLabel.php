@@ -34,15 +34,20 @@ class CLCLabel extends AbstractLabel {
 
     // Location Name + Location Code
     $this->labelMaker->Text(
-      $this->GetX(110),
+      $this->GetX(115),
       $this->GetY(170),
       $this->ShipTO->locName . ' ' . '(' . $this->ShipTO->locCode . ')');
+
+   /*
+      This portion has been taken out by request.
 
     // Below Name - it's a stat code + the uuid ??? that's a little weird
     $this->labelMaker->Text(
       $this->GetX(110),
       $this->GetY(185),
       $this->ShipTO->city . ', ' . $this->ShipTO->state);
+
+   */
 
   }
 
