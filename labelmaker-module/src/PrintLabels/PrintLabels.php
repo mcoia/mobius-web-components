@@ -74,6 +74,6 @@ $labelService = new LabelService(
 
 $labelService->printLabels($totalPrintLabels);
 
-setcookie('labelFrom', $shippingService->ShipFROM->id, time() + (60 * 60 * 24 * 365), '/');
+setcookie('label-from', $shippingService->ShipFROM->id, time() + (60 * 60 * 24 * 365), '/');
 
 ob_end_flush();
