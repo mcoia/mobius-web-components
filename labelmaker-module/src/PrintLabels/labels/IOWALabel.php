@@ -29,7 +29,7 @@ class IOWALabel extends AbstractLabel {
 
   public function DrawShipTO(): void {
 
-    $this->labelMaker->SetFont('Arial', 'B', 10);
+    $this->labelMaker->SetFont('Arial', 'B', 8);
 
     // Location Name + Location Code
     $this->labelMaker->Text(
@@ -53,13 +53,13 @@ class IOWALabel extends AbstractLabel {
     $this->labelMaker->barcode->Generate(
       $this->GetX(80),
       $this->GetY(200),
-      $this->GetShipmentID(),
+      $this->ShipTO->statCode . $this->GetShipmentID(),
       235,
       60,
     );
 
     // Now the qrcode
-    $qrcode = new QRcode ($this->GetShipmentID(), 'H');
+    $qrcode = new QRcode ($this->ShipTO->statCode . $this->GetShipmentID(), 'H');
     $qrcode->disableBorder();
     $qrcode->displayFPDF(
       $this->labelMaker,

@@ -2,6 +2,12 @@
 
 class ABCLabel extends AbstractLabel {
 
+  /*
+      This is a blank label for demo purposes
+  */
+
+
+
 
   public function DrawShipFROM(): void {
     // TODO: Implement DrawShipFROM() method.

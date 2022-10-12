@@ -29,7 +29,7 @@ class IASHRLabel extends AbstractLabel {
 
   public function DrawShipTO(): void {
 
-    $this->labelMaker->SetFont('Arial', 'B', 10);
+    $this->labelMaker->SetFont('Arial', 'B', 8);
 
     // Location Name + Location Code
     $this->labelMaker->Text(
@@ -78,7 +78,7 @@ class IASHRLabel extends AbstractLabel {
     $this->labelMaker->SetFont('Arial', 'B', 42);
 
     $this->labelMaker->Text(
-      $this->GetX(120),
+      $this->GetX(110),
       $this->GetY(160),
       $this->ShipTO->statCode);
   }

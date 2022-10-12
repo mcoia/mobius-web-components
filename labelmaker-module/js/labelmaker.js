@@ -4,7 +4,7 @@ class LabelMaker {
     this.initChosen();
     this.initSubmitButton();
     this.filterOptionTags();
-    this.hideDropDown()
+    this.hideDropDown();
     this.hideErrorMessage();
   }
 
@@ -17,12 +17,12 @@ class LabelMaker {
 
       // 2nd Dropdown
       if (jQuery('#jsonTo').val() == '') {
-        message = 'Destination Not Selected'
+        message = 'Destination Not Selected';
       }
 
       // 1st Dropdown
       if (jQuery('#jsonFrom').val() == '') {
-        message = 'Ship From Not Selected'
+        message = 'Ship From Not Selected';
       }
 
       if (message != '') {
@@ -64,10 +64,10 @@ class LabelMaker {
       */
 
       // convert our params to json
-      let jsonFrom = JSON.parse(params['selected'])
+      let jsonFrom = JSON.parse(params['selected']);
 
       // convert our json.permittedTo => array
-      let permittedToArray = jsonFrom.permittedTo.split(',')
+      let permittedToArray = jsonFrom.permittedTo.split(',');
 
       // grab all option tags from our send to dropdown and check intersort
       // against permitted values

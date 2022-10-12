@@ -30,24 +30,24 @@ class CLCLabel extends AbstractLabel {
 
   public function DrawShipTO(): void {
 
-    $this->labelMaker->SetFont('Arial', 'B', 11);
+    $this->labelMaker->SetFont('Arial', 'B', 8);
 
     // Location Name + Location Code
     $this->labelMaker->Text(
-      $this->GetX(115),
+      $this->GetX(110),
       $this->GetY(170),
       $this->ShipTO->locName . ' ' . '(' . $this->ShipTO->locCode . ')');
 
-   /*
-      This portion has been taken out by request.
+    /*
+       This portion has been taken out by request.
 
-    // Below Name - it's a stat code + the uuid ??? that's a little weird
-    $this->labelMaker->Text(
-      $this->GetX(110),
-      $this->GetY(185),
-      $this->ShipTO->city . ', ' . $this->ShipTO->state);
+     // Below Name - it's a stat code + the uuid ??? that's a little weird
+     $this->labelMaker->Text(
+       $this->GetX(110),
+       $this->GetY(185),
+       $this->ShipTO->city . ', ' . $this->ShipTO->state);
 
-   */
+    */
 
   }
 
@@ -60,7 +60,7 @@ class CLCLabel extends AbstractLabel {
     $this->labelMaker->barcode->Generate(
       $this->GetX(80),
       $this->GetY(170),
-      $this->GetShipmentID(),
+      $this->ShipTO->statCode . $this->GetShipmentID(),
       150,
       30,
     );
@@ -95,7 +95,7 @@ class CLCLabel extends AbstractLabel {
     $this->labelMaker->SetFont('Arial', 'B', 32);
 
     $this->labelMaker->Text(
-      $this->GetX(113),
+      $this->GetX(110),
       $this->GetY(152),
       $this->ShipTO->interSort . ': ' . $this->ShipTO->sortCode);
 

@@ -30,7 +30,7 @@ class TAELabel extends AbstractLabel {
 
   public function DrawShipTO(): void {
 
-    $this->labelMaker->SetFont('Arial', 'B', 11);
+    $this->labelMaker->SetFont('Arial', 'B', 8);
 
     // Location Name + Location Code
     $this->labelMaker->Text(
@@ -54,7 +54,7 @@ class TAELabel extends AbstractLabel {
     $this->labelMaker->barcode->Generate(
       $this->GetX(80),
       $this->GetY(170),
-      $this->GetShipmentID(),
+      $this->ShipTO->statCode . $this->GetShipmentID(),
       150,
       30,
     );
@@ -88,7 +88,7 @@ class TAELabel extends AbstractLabel {
     $this->labelMaker->SetFont('Arial', 'B', 32);
 
     $this->labelMaker->Text(
-      $this->GetX(113),
+      $this->GetX(110),
       $this->GetY(152),
       $this->ShipTO->interSort . ': ' .
       $this->ShipTO->locCode . '/' .
