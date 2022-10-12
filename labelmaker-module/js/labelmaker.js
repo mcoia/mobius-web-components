@@ -1,6 +1,7 @@
 class LabelMaker {
 
   constructor() {
+    this.checkCookieStatus();
     this.initChosen();
     this.initSubmitButton();
     this.filterOptionTags();
@@ -79,7 +80,6 @@ class LabelMaker {
 
         let dataInterSortValue = jQuery(this).attr('data-intersort');
 
-
         // check if our instersort is in our permittedTo
         // disable the option if it's not
         if (jQuery.inArray(dataInterSortValue, permittedToArray) == -1) {
@@ -105,7 +105,6 @@ class LabelMaker {
     if (!this.isDropDownSelected()) {
       jQuery('#jsonTo_chosen').hide();
 
-      // We'll mom's spaghetti this code
       // Add an event listener and check for changes on the first dropdown
       // and show the 2nd dropdown if we detect something...
       jQuery('#jsonFrom').on('change', function () {
@@ -137,6 +136,47 @@ class LabelMaker {
 
     jQuery('#jsonTo').on('change', function () {
       jQuery('#error-message').text('');
+    });
+
+  }
+
+  getCookie(cname) {
+    let name = cname + "=";
+    let decodedCookie = decodeURIComponent(document.cookie);
+    let ca = decodedCookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) == ' ') {
+        c = c.substring(1);
+      }
+      if (c.indexOf(name) == 0) {
+        return c.substring(name.length, c.length);
+      }
+    }
+    return "";
+  }
+
+  checkCookieStatus() {
+
+    let institutionID = this.getCookie('label-from');
+
+    jQuery('#jsonFrom option').each(function (i) {
+
+      // this is like a continue; but for jQuery.
+      // we have to skip the first <option> as it's blank
+      if (i == 0) {
+        return true;
+      }
+
+      let dropdownID = JSON.parse(jQuery(this).val()).id;
+
+      if (institutionID == dropdownID) {
+
+        jQuery(this).attr('selected', 'selected');
+        // jQuery("#jsonFrom").trigger("chosen:updated");
+
+      }
+
     });
 
   }
