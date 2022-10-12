@@ -23,10 +23,10 @@ class LabelMakerController extends ControllerBase {
   private function buildSelectFormElement($list_name, $list_label, $select_multiple = "", $required = ''): string {
 
 
-    $mco_last_from_id = 0;
-    if (isset($_COOKIE['label-from'])) {
-      $mco_last_from_id = $_COOKIE['label-from'];
-    }
+//    $mco_last_from_id = 0;
+//    if (isset($_COOKIE['label-from'])) {
+//      $mco_last_from_id = $_COOKIE['label-from'];
+//    }
 
     $institutions = $this->getInstitutionalListFromDatabase();
 
@@ -72,9 +72,9 @@ class LabelMakerController extends ControllerBase {
 
       // Set our FROM in our dropdown based off our cookie value - check to see if the mco_last_from_id cookie equals this node id
       //      if ($list_label == "FROM" && $mco_last_from_id == $institutionID) {
-      if (strcmp($list_label, "FROM") == 0 && (int) $mco_last_from_id == (int) $institutionID) {
-        $html = $html . " selected ";
-      }
+//      if (strcmp($list_label, "FROM") == 0 && (int) $mco_last_from_id == (int) $institutionID) {
+//        $html = $html . " selected ";
+//      }
 
       $html = $html . "data-permitted-to='$permittedTo' ";
       $html = $html . "data-intersort='$interSort' ";
