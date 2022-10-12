@@ -71,7 +71,8 @@ class LabelMakerController extends ControllerBase {
       $state = $institution["state"];
 
       // Set our FROM in our dropdown based off our cookie value - check to see if the mco_last_from_id cookie equals this node id
-      if ($list_label == "FROM" && $mco_last_from_id == $institutionID) {
+      //      if ($list_label == "FROM" && $mco_last_from_id == $institutionID) {
+      if (strcmp($list_label, "FROM") == 0 && (int) $mco_last_from_id == (int) $institutionID) {
         $html = $html . " selected ";
       }
 
