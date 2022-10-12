@@ -63,7 +63,7 @@ class MALALabel extends AbstractLabel {
     $this->labelMaker->barcode->Generate(
       $this->GetX(80),
       $this->GetY(170),
-      $this->ShipTO->statCode . $this->GetShipmentID(),
+      $this->ShipTO->statCode ."_". $this->GetShipmentID(),
       150,
       30,
     );

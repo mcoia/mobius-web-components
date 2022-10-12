@@ -58,13 +58,13 @@ class MOBLabel extends AbstractLabel {
     $this->labelMaker->barcode->Generate(
       $this->GetX(80),
       $this->GetY(200),
-      $this->ShipTO->statCode . $this->GetShipmentID(),
+      $this->ShipTO->statCode . "_" . $this->GetShipmentID(),
       235,
       60,
     );
 
     // Now the qrcode
-    $qrcode = new QRcode ($this->ShipTO->statCode . $this->GetShipmentID(), 'H');
+    $qrcode = new QRcode ($this->ShipTO->statCode . "_" . $this->GetShipmentID(), 'H');
     $qrcode->disableBorder();
     $qrcode->displayFPDF(
       $this->labelMaker,
