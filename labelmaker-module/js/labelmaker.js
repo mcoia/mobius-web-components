@@ -1,11 +1,62 @@
+/*
+
+
+dropDownElement = #jsonFrom || #jsonTo
+locationName = locName
+
+example:
+disableOption('#jsonFrom', 'A.T. Still Memorial Lib. ');
+
+*/
+function disableOption(dropdownID, locationName) {
+
+  // now disable the element with the given location name on jsonTo
+  jQuery(dropdownID + ' option').each(function (index) {
+
+    let currentElementJSON;
+
+    // the first option on the #jsonFrom is empty. We gotta check for that.
+    let validOption = true;
+    if (dropdownID == '#jsonFrom' && index == 0) {
+      validOption = false;
+    }
+
+    if (validOption) {
+
+      currentElementJSON = JSON.parse(jQuery(this).val());
+
+      // disable the element
+      if (currentElementJSON.locName == locationName) {
+        let optionElement = jQuery(this)[0];
+        optionElement.disabled = true;
+      }
+    }
+
+  });
+
+  // update chosen
+  jQuery(dropdownID).trigger("chosen:updated");
+
+}
+
+function resetOptions(dropdownID) {
+
+  jQuery(dropdownID + ' option').each(function (index) {
+    let optionElement = jQuery(this)[0];
+    optionElement.disabled = false;
+  });
+
+  jQuery(dropdownID).trigger("chosen:updated");
+
+}
+
 class LabelMaker {
 
   constructor() {
     this.checkCookieStatus();
     this.initChosen();
     this.initSubmitButton();
-    this.filterOptionTags();
-    this.hideDropDown();
+    this.initDropDownEventListeners();
     this.hideErrorMessage();
   }
 
@@ -42,7 +93,7 @@ class LabelMaker {
   }
 
   // jQuery did this...
-  filterOptionTags() {
+  initDropDownEventListeners() {
 
     jQuery('#jsonFrom').on('change', function (evt, params) {
 
@@ -64,6 +115,9 @@ class LabelMaker {
 
       */
 
+
+      resetOptions('#jsonTo');
+
       // convert our params to json
       let jsonFrom = JSON.parse(params['selected']);
 
@@ -80,6 +134,7 @@ class LabelMaker {
 
         let dataInterSortValue = jQuery(this).attr('data-intersort');
 
+
         // check if our instersort is in our permittedTo
         // disable the option if it's not
         if (jQuery.inArray(dataInterSortValue, permittedToArray) == -1) {
@@ -91,7 +146,38 @@ class LabelMaker {
 
       });
 
-      jQuery("#jsonTo").trigger("chosen:updated");
+      // ship From Location Name
+      let shipFromLocationName = jsonFrom.locName;
+
+      // remove option from ship to dropdown
+      disableOption('#jsonTo', shipFromLocationName);
+
+      jQuery('#jsonTo').trigger("chosen:updated");
+
+    });
+
+
+    /* jsonTo */
+    jQuery('#jsonTo').on('change', function (evt, params) {
+
+      let jsonToArray = [];
+
+
+      resetOptions('#jsonFrom');
+
+      // loop over all selected #jsonTo address
+      jQuery('#jsonTo option').each(function (index) {
+
+        // check if option is selected
+        if (jQuery(this)[0].selected) {
+
+          // if we are selected, remove it from the jsonFrom dropdown
+          let selectedOptionLocName = JSON.parse(jQuery(jQuery(this)[0]).val()).locName;
+          disableOption('#jsonFrom', selectedOptionLocName);
+        }
+
+
+      });
 
     });
 
@@ -104,14 +190,13 @@ class LabelMaker {
     // hide the  2nd dropdown(#jsonTo)
     if (!this.isDropDownSelected()) {
       jQuery('#jsonTo_chosen').hide();
-
-      // Add an event listener and check for changes on the first dropdown
-      // and show the 2nd dropdown if we detect something...
-      jQuery('#jsonFrom').on('change', function () {
-        jQuery('#jsonTo_chosen').show();
-      });
-
     }
+
+    // Add an event listener and check for changes on the first dropdown
+    // and show the 2nd dropdown if we detect something...
+    jQuery('#jsonFrom').on('change', function () {
+      jQuery('#jsonTo_chosen').show();
+    });
 
   }
 
@@ -173,7 +258,6 @@ class LabelMaker {
       if (institutionID == dropdownID) {
 
         jQuery(this).attr('selected', 'selected');
-        // jQuery("#jsonFrom").trigger("chosen:updated");
 
       }
 
