@@ -53,11 +53,13 @@ function resetOptions(dropdownID) {
 class LabelMaker {
 
   constructor() {
+
     this.checkCookieStatus();
     this.initChosen();
     this.initSubmitButton();
     this.initDropDownEventListeners();
     this.hideErrorMessage();
+    this.initTriggerJSONFromEvent();
   }
 
   initSubmitButton() {
@@ -89,7 +91,7 @@ class LabelMaker {
   }
 
   initChosen() {
-    jQuery(".chosen-select").chosen({search_contains: true});
+    jQuery('.chosen-select').chosen({search_contains: true});
   }
 
   // jQuery did this...
@@ -114,7 +116,6 @@ class LabelMaker {
         then we'll disable the option tag eliminating it from the view.
 
       */
-
 
       resetOptions('#jsonTo');
 
@@ -156,12 +157,10 @@ class LabelMaker {
 
     });
 
-
     /* jsonTo */
     jQuery('#jsonTo').on('change', function (evt, params) {
 
       let jsonToArray = [];
-
 
       resetOptions('#jsonFrom');
 
@@ -180,6 +179,13 @@ class LabelMaker {
       });
 
     });
+
+  }
+
+  initTriggerJSONFromEvent() {
+
+    let jsonFrom = {selected: jQuery('#jsonFrom').val()};
+    jQuery('#jsonFrom').trigger("change", jsonFrom);
 
   }
 
