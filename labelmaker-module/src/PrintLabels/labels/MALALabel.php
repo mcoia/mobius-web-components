@@ -8,22 +8,22 @@ class MALALabel extends AbstractLabel {
 
     // FROM:
     $this->labelMaker->Text(
-      $this->GetX(55),
-      $this->GetY(18),
+      $this->SetX(55),
+      $this->SetY(18),
       "FROM: " . $this->ShipFROM->locCode);
 
     $this->labelMaker->SetFont('Arial', '', 8);
 
     // under FROM:
     $this->labelMaker->Text(
-      $this->GetX(55),
-      $this->GetY(32),
+      $this->SetX(55),
+      $this->SetY(32),
       $this->ShipFROM->locName);
 
 
     $this->labelMaker->Text(
-      $this->GetX(55),
-      $this->GetY(42),
+      $this->SetX(55),
+      $this->SetY(42),
       $this->ShipFROM->city . ', ' . $this->ShipFROM->state);
 
   }
@@ -34,20 +34,20 @@ class MALALabel extends AbstractLabel {
 
     // Location Name + Location Code
     $this->labelMaker->Text(
-      $this->GetX(110),
-      $this->GetY(170),
+      $this->SetX(110),
+      $this->SetY(170),
       $this->ShipTO->locName . ' ' . $this->ShipTO->locCode);
 
     // Below Name - it's a stat code + the uuid ??? that's a little weird
     $this->labelMaker->Text(
-      $this->GetX(110),
-      $this->GetY(185),
+      $this->SetX(110),
+      $this->SetY(185),
       $this->ShipTO->address1);
 
     // Below Name - it's a stat code + the uuid ??? that's a little weird
     $this->labelMaker->Text(
-      $this->GetX(110),
-      $this->GetY(200),
+      $this->SetX(110),
+      $this->SetY(200),
       $this->ShipTO->city . ', ' .
       $this->ShipTO->state . ' ' .
       $this->ShipTO->zip);
@@ -57,12 +57,12 @@ class MALALabel extends AbstractLabel {
   public function DrawBarcode(): void {
 
 
-    $this->labelMaker->Rotate(90, $this->GetX(40), $this->GetY(200));
+    $this->labelMaker->Rotate(90, $this->SetX(40), $this->SetY(200));
 
     // Standard code 128 barcode
     $this->labelMaker->barcode->Generate(
-      $this->GetX(80),
-      $this->GetY(170),
+      $this->SetX(80),
+      $this->SetY(170),
       $this->ShipTO->statCode ."_". $this->GetShipmentID(),
       150,
       30,
@@ -70,8 +70,8 @@ class MALALabel extends AbstractLabel {
 
     // BagID::
     $this->labelMaker->Text(
-      $this->GetX(105),
-      $this->GetY(210),
+      $this->SetX(105),
+      $this->SetY(210),
       "BagID: " . $this->GetShipmentID());
 
     $this->labelMaker->Rotate(0, 0, 0);
@@ -83,8 +83,8 @@ class MALALabel extends AbstractLabel {
     $this->labelMaker->SetFont('Arial', 'B', 26);
 
     $this->labelMaker->Text(
-      $this->GetX(300),
-      $this->GetY(30),
+      $this->SetX(300),
+      $this->SetY(30),
       $this->ShipTO->sortCode
     );
 
@@ -95,8 +95,8 @@ class MALALabel extends AbstractLabel {
     $this->labelMaker->SetFont('Arial', 'B', 32);
 
     $this->labelMaker->Text(
-      $this->GetX(110),
-      $this->GetY(152),
+      $this->SetX(110),
+      $this->SetY(152),
       $this->ShipTO->statCode);
 
   }

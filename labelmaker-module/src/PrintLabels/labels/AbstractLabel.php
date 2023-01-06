@@ -25,11 +25,11 @@ abstract class AbstractLabel implements Label {
     return $this->quadrantNumber;
   }
 
-  public function GetX($x): int {
+  public function SetX($x): int {
     return $this->labelMaker->GetQuadrantCoordinateArray($this->quadrantNumber)['x'] + $x;
   }
 
-  public function GetY($y): int {
+  public function SetY($y): int {
     return $this->labelMaker->GetQuadrantCoordinateArray($this->quadrantNumber)['y'] + $y;
   }
 
