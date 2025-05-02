@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # /production/sites/default/settings.php
 
-use lib qw(../ ./); 
+use lib qw(./ ../);
 use Loghandler;
 use Data::Dumper;
 use File::Path qw(make_path remove_tree);
@@ -19,9 +19,11 @@ use Selenium::Remote::WebElement;
 use pQuery;
 use Getopt::Long;
 use Cwd;
+use Unicode::Normalize;
 
 use sierraCluster;
 use innreachServer;
+use iiiServer;
 
 our $stagingTablePrefix = "mobius_bnl";
 our $pidfile = "/tmp/bnl_import.pl.pid";
@@ -37,6 +39,7 @@ our $recreateDB = 0;
 our $dbSeed,
 our $blindDate = 0;
 our $monthsBack = 1;
+our $csvFile;
 our $specificMonth;
 our $specificCluster;
 
@@ -48,6 +51,7 @@ GetOptions (
 "recreateDB" => \$recreateDB,
 "dbSeed=s" => \$dbSeed,
 "blindDate" => \$blindDate,
+"csv=s" => \$csvFile,
 "monthsBack=s" => \$monthsBack,
 "specificMonth=s" => \$specificMonth,
 "specificCluster=s" => \$specificCluster,
@@ -58,6 +62,7 @@ or die("Error in command line arguments\nYou can specify
 --debug                                       [Cause more log output]
 --recreateDB                                  [Deletes the tables and recreates them]
 --dbSeed                                      [DB Seed file - populating the base data]
+--csv                                         [process an incoming CSV file instead of scraping the web (OpenRS)]
 --blindDate                                   [Should the software re-generate previously generated datasets]
 --monthsBack                                  [How far back should we gather data Integer in months. Default is 1]
 --specificMonth                               [Allow user input a specific month. Format is: YYYY-DD-01]
@@ -91,51 +96,258 @@ setupDB();
 
 createDatabase();
 
-initializeBrowser();
+processCSV() if $csvFile;
 
-my $writePid = new Loghandler($pidfile);
-$writePid->truncFile("running");
-
-my $cwd = getcwd();
-$cwd .= "/screenshots";
-
-my @all = @{getClusters()};
-if(@all[1])
+if(!$csvFile)
 {
-    my @order = @{@all[1]};
-    my %clusters = %{@all[0]};
-    mkdir $cwd unless -d $cwd;
+    initializeBrowser();
 
-    print "Specific Cluster: $specificCluster\n" if $specificCluster;
-    print "Months Back $monthsBack\n" if $monthsBack && !$specificMonth;
-    print "Specific Month: $specificMonth\n" if $specificMonth;
-    foreach(@order)
+    my $writePid = new Loghandler($pidfile);
+    $writePid->truncFile("running");
+
+    our $cwd = getcwd();
+    $cwd .= "/screenshots";
+
+    my @all = @{getClusters()};
+    if(@all[1])
     {
-        print "Processing: $_\n";
-        my $cluster;
-        if($clusters{$_} =~ m/sierra/)  ## Right now, there are two typs: sierra and innreach
+        my @order = @{@all[1]};
+        my %clusters = %{@all[0]};
+        mkdir $cwd unless -d $cwd;
+
+        print "Specific Cluster: $specificCluster\n" if $specificCluster;
+        print "Months Back $monthsBack\n" if $monthsBack && !$specificMonth;
+        print "Specific Month: $specificMonth\n" if $specificMonth;
+        foreach(@order)
         {
-            $cluster = new sierraCluster($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug,$specificMonth);
+            print "Processing: $_\n";
+            my $cluster;
+            if($clusters{$_} =~ m/sierra/)  ## Right now, there are two typs: sierra and innreach
+            {
+                $cluster = new sierraCluster($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug,$specificMonth);
+            }
+            else
+            {
+                $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug,$specificMonth);
+            }
+            $cluster->scrape();
+            my @missingMonths = @{dataExists($_, $cluster)};
+            ## Go again if it didn't work. This is usually due to a headless browser load issue.
+            foreach(@missingMonths)
+            {
+                print "Repeating $_\n";
+                $cluster->setSpecificDate($_);
+                $cluster->scrape();
+            }
+        }
+    }
+
+    undef $writePid;
+    closeBrowser();
+}
+$log->addLogLine("****************** Ending ******************");
+
+
+sub processCSV
+{
+    # make sure the CSV file exists!
+    if( ! -f $csvFile)
+    {
+        print "CSV File not found: $csvFile\n";
+        exit 1;
+    }
+    print "Processing a CSV requires --specificCluster to be specified\n" if !$specificCluster;
+    exit 1 if !$specificCluster;
+
+    my $csv = Text::CSV->new(); #{ allow_whitespace => 1 }
+    my %columnDefs =
+    (
+        owning_lib => 4,
+        borrowing_lib => 1,
+        prev_status => 10,
+        status => 11,
+        date => 18,
+    );
+    my %fullData = ();
+    my @disqualifyingStatusValues = ('NO_ITEMS_SELECTABLE_AT_ANY_AGENCY');
+    my @dates = ();
+
+    # Reading the file
+    open(my $dataStream, '<', $csvFile) or die;
+    my $rowCount = 0;
+    my $nonParsed = 0;
+    while (my $line = <$dataStream>)
+    {
+        chomp $line;
+        $rowCount++;
+
+        # Parsing the line
+        if ($csv->parse(normalizeText($line)))
+        {
+            my @csvRowValues = $csv->fields();
+            # print Dumper(\@csvRowValues);
+            my $skipRow = 0;
+
+            foreach(@disqualifyingStatusValues)
+            {
+                $skipRow = 1 if (@csvRowValues[$columnDefs{'status'}] eq $_);
+            }
+            # Header row detected
+            $skipRow = 1 if ( lc @csvRowValues[0] eq 'date created');
+
+            print "Skpping row: $rowCount\n" if ($skipRow && $debug);
+            next if $skipRow;
+            my $thisDate = extractDateFromLongForm(@csvRowValues[$columnDefs{'date'}]);
+            if( $thisDate =~ /\d{4}\-\d{2}\-\d{2}/ )
+            {
+                my $owningLib = @csvRowValues[$columnDefs{'owning_lib'}];
+                my $borrowingLib = @csvRowValues[$columnDefs{'borrowing_lib'}];
+
+                if(!$fullData{$thisDate})
+                {
+                    my %newd = ();
+                    $fullData{$thisDate} = \%newd;
+                    push(@dates, $thisDate);
+                }
+                my %borrowingMap = %{$fullData{$thisDate}};
+
+                if(!$borrowingMap{$owningLib})
+                {
+                    my %newmap = ();
+                    $borrowingMap{$owningLib} = \%newmap;
+                }
+                if(!$borrowingMap{$owningLib}->{$borrowingLib})
+                {
+                    $borrowingMap{$owningLib}->{$borrowingLib} = 1;
+                }
+                else
+                {
+                    $borrowingMap{$owningLib}->{$borrowingLib}++;
+                }
+                $fullData{$thisDate} = \%borrowingMap;
+                undef $thisDate;
+            }
+            else
+            {
+                # Warning to be displayed
+                warn "Line could not be parsed: $line\n";
+                $nonParsed++;
+            }
         }
         else
         {
-            $cluster = new innreachServer($_,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug,$specificMonth);
-        }
-        $cluster->scrape();
-        my @missingMonths = @{dataExists($_, $cluster)};
-        ## Go again if it didn't work. This is usually due to a headless browser load issue.
-        foreach(@missingMonths)
-        {
-            print "Repeating $_\n";
-            $cluster->setSpecificDate($_);
-            $cluster->scrape();
+            # Warning to be displayed
+            warn "Line could not be parsed: $line\n";
+            $nonParsed++;
         }
     }
-}   
+    $log->addLine(Dumper(\%fullData));
+    
+    print "total: $rowCount\n";
+    print "unparsed: $nonParsed\n";
+    my $bnlServer = new iiiServer($specificCluster,$dbHandler,$stagingTablePrefix,$driver,$cwd,$monthsBack,$blindDate,$log,$debug,$specificMonth);
 
-undef $writePid;
-closeBrowser();
-$log->addLogLine("****************** Ending ******************");
+    # Spidered the table - now saving it to storage
+    my $randomHash = $bnlServer->generateRandomString(12);
+    my @vals = ();
+    my $query = "truncate $stagingTablePrefix"."_bnl_stage";
+    $bnlServer->doUpdateQuery($query,"TRUNCATING $stagingTablePrefix"."_bnl_stage",\@vals);
+    my $query = "INSERT INTO 
+    $stagingTablePrefix"."_bnl_stage
+    (working_hash,owning_lib,borrowing_lib,quantity,borrow_date)
+    values
+    ";
+    while ((my $dbDate, my $borrowingMapRef ) = each(%fullData))
+    {
+        my %borrowingMap = %{$borrowingMapRef};
+        while ((my $key, my $value ) = each(%borrowingMap))
+        {
+            my %innermap = %{$value};
+            while ((my $insideKey, my $insideValue ) = each(%innermap))
+            {
+                $query .= "(?,?,?,?,?),\n";
+                push @vals, ($randomHash, $key, $insideKey, $insideValue, $dbDate);
+            }
+        }
+    }
+    $query = substr($query,0,-2);
+    $bnlServer->doUpdateQuery($query,"INSERTING $stagingTablePrefix"."_bnl_stage",\@vals);
+
+    # We're going to deviate from the usual, and translate the library names to their name from the maps
+    $query="
+    UPDATE
+    $stagingTablePrefix"."_bnl_stage stage,
+    $stagingTablePrefix"."_branch_shortname_agency_translate mapping
+    SET
+    stage.borrowing_lib = mapping.institution
+    WHERE
+    lower(stage.borrowing_lib)=lower(mapping.shortname) AND
+    working_hash = ?
+    ";
+    @vals = ($randomHash);
+    $bnlServer->doUpdateQuery($query,"Normalizing names $stagingTablePrefix"."_bnl_stage",\@vals);
+    
+    $query="
+    UPDATE
+    $stagingTablePrefix"."_bnl_stage stage,
+    $stagingTablePrefix"."_branch_shortname_agency_translate mapping
+    SET
+    stage.owning_lib = mapping.institution
+    WHERE
+    lower(stage.owning_lib)=lower(mapping.shortname) AND
+    working_hash = ?
+    ";
+    @vals = ($randomHash);
+    $bnlServer->doUpdateQuery($query,"Normalizing names $stagingTablePrefix"."_bnl_stage",\@vals);
+    $query="
+    UPDATE
+    $stagingTablePrefix"."_bnl_stage stage,
+    $stagingTablePrefix"."_normalize_branch_name mapping
+    SET
+    stage.borrowing_lib = mapping.normalized
+    WHERE
+    lower(stage.borrowing_lib)=lower(mapping.variation) AND
+    working_hash = ?
+    ";
+    @vals = ($randomHash);
+    $bnlServer->doUpdateQuery($query,"Normalizing names $stagingTablePrefix"."_bnl_stage",\@vals);
+    
+    $query="
+    UPDATE
+    $stagingTablePrefix"."_bnl_stage stage,
+    $stagingTablePrefix"."_normalize_branch_name mapping
+    SET
+    stage.owning_lib = mapping.normalized
+    WHERE
+    lower(stage.owning_lib)=lower(mapping.variation) AND
+    working_hash = ?
+    ";
+    @vals = ($randomHash);
+    $bnlServer->doUpdateQuery($query,"Normalizing names $stagingTablePrefix"."_bnl_stage",\@vals);
+
+    $bnlServer->processStagingTable($randomHash);
+    $bnlServer->normalizeNames();
+    $bnlServer->cleanDuplicates(\@dates);
+}
+
+sub extractDateFromLongForm
+{
+    # 2025-03-31T21:05:50.067798Z
+    my $date = shift;
+    $date =~ s/^(\d{4})\-(\d{2})\-(\d{2}).*/$1-$2-01/g;
+    return $date;
+}
+
+sub normalizeText
+{
+    my $data = shift;
+    $data = NFD($data);
+    $data =~ s/[\x{80}-\x{ffff}]//go;
+    # $data =~ s/\W+$//go;
+    # $data =~ s/\s//go;
+    # $data =~ s/\t//go;
+    return $data;
+}
 
 sub dataExists
 {
@@ -258,7 +470,7 @@ sub setupDB
                 $answers{$v} = @sp[1];
                 #print "$v = ".$answers{$v}."\nline was:\n$line\n";
             }
-         }  
+         }
     }
     undef $answers{'port'} if length($answers{'port'}) == 0;
     $databaseName = $answers{'database'};
@@ -303,6 +515,14 @@ sub createDatabase
         my $query = "DROP VIEW IF EXISTS $stagingTablePrefix"."_bnl_final_branch_map ";
         $log->addLine($query);
         $dbHandler->update($query);
+        my $query = "DROP TRIGGER IF EXISTS $stagingTablePrefix"."_branch_institution_normal_insert ";
+        $log->addLine($query);
+        my $query = "DROP TRIGGER IF EXISTS $stagingTablePrefix"."_branch_institution_normal_update ";
+        $log->addLine($query);
+        my $query = "DROP TRIGGER IF EXISTS $stagingTablePrefix"."_bnl_match_key_insert ";
+        $log->addLine($query);
+        my $query = "DROP TRIGGER IF EXISTS $stagingTablePrefix"."_bnl_match_key_update ";
+        $log->addLine($query);
         my $query = "DROP FUNCTION IF EXISTS $stagingTablePrefix"."_normalize_library_name ";
         $log->addLine($query);
         $dbHandler->update($query);
@@ -344,7 +564,7 @@ sub createDatabase
     my @exists = @{$dbHandler->query("SELECT table_name FROM information_schema.tables WHERE table_schema RLIKE '$databaseName' AND table_name RLIKE '$stagingTablePrefix'")};
     if(!$exists[0])
     {
-    
+
         ##################
         # FUNCTIONS
         ##################
@@ -409,7 +629,7 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         $query = "CREATE TABLE $stagingTablePrefix"."_bnl (
         id int not null auto_increment,
         owning_cluster int,
@@ -431,7 +651,7 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         $query = "CREATE TABLE $stagingTablePrefix"."_bnl_stage (
         id int not null auto_increment,
         working_hash varchar(50),
@@ -474,7 +694,7 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         $query = "CREATE TABLE $stagingTablePrefix"."_branch_shortname_agency_translate (
         id int not null auto_increment,
         shortname varchar(100),
@@ -495,7 +715,7 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         $query = "CREATE TABLE $stagingTablePrefix"."_shortname_override (
         id int not null auto_increment,
         shortname varchar(100),
@@ -519,7 +739,7 @@ sub createDatabase
         # VIEWS
         ##################
 
-        ## This view is used to make queries cleaner. 
+        ## This view is used to make queries cleaner.
         ## Results in bnl final branch ID instead of branch ID for each bnl quantity
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_bnl_final_branch_map
@@ -549,7 +769,7 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         ## Building block for compound view _branch_final_cluster_map
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster_owner_filter
@@ -590,7 +810,7 @@ sub createDatabase
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster_raw
         AS
         -- Find branches with that appear on innreach and sierra. Prefer sierra cluster ID for sierra entries
-        select DISTINCT 
+        select DISTINCT
         final_branch.id \"fid\",cluster.name \"cname\",cluster.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
@@ -608,11 +828,11 @@ sub createDatabase
         lower(cluster_map.types) LIKE '%innreach%' AND
         lower(cluster_map.types) LIKE '%sierra%' AND
         lower(final_branch.name) NOT IN(select lower(name) from $stagingTablePrefix"."_manual_branch_to_cluster)
-        
+
         UNION ALL
-        
+
         -- Find branches with that appear on innreach and sierra. Prefer sierra cluster ID for innreach entries
-        select DISTINCT 
+        select DISTINCT
         final_branch.id \"fid\",sierra_cluster.name \"cname\",sierra_cluster.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
@@ -639,7 +859,7 @@ sub createDatabase
         UNION ALL
 
         -- Find branches that appear on innreach only AND ARE manually assigned a cluster
-        select DISTINCT 
+        select DISTINCT
         final_branch.id \"fid\",cluster_assigned.name \"cname\",cluster_assigned.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
@@ -660,7 +880,7 @@ sub createDatabase
         UNION ALL
 
         -- Find branches that appear on sierra only AND are NOT manually assigned to a cluster
-        select DISTINCT 
+        select DISTINCT
         final_branch.id \"fid\",cluster.name \"cname\",cluster.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
@@ -677,11 +897,11 @@ sub createDatabase
         lower(cluster.type) = 'sierra' AND
         lower(cluster_map.types) NOT LIKE '%innreach%' AND
         lower(final_branch.name) NOT IN(select lower(name) from $stagingTablePrefix"."_manual_branch_to_cluster)
-        
+
         UNION ALL
 
         -- Find branches that appear on sierra only AND are manually assigned to a cluster
-        select DISTINCT 
+        select DISTINCT
         final_branch.id \"fid\",cluster_assigned.name \"cname\",cluster_assigned.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
@@ -697,11 +917,11 @@ sub createDatabase
         lower(cluster_assigned.name)=lower(manual_branch_cluster.cluster) AND
         lower(cluster.type) = 'sierra' AND
         lower(cluster_map.types) NOT LIKE '%innreach%'
-        
+
         UNION ALL
 
         -- Find branches that appear on sierra and innreach AND are manually assigned to a cluster
-        select DISTINCT 
+        select DISTINCT
         final_branch.id \"fid\",cluster_assigned.name \"cname\",cluster_assigned.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
@@ -717,11 +937,11 @@ sub createDatabase
         lower(cluster_assigned.name)=lower(manual_branch_cluster.cluster) AND
         lower(cluster.type) = 'sierra' AND
         lower(cluster_map.types) LIKE '%innreach%'
-        
+
         UNION ALL
 
         -- Find branches that appear on innreach only AND are NOT manually assigned to a cluster
-        SELECT DISTINCT 
+        SELECT DISTINCT
         final_branch.id \"fid\",cluster.name \"cname\",cluster.id \"cid\"
         FROM
         $stagingTablePrefix"."_branch_final_cluster_map cluster_map,
@@ -741,7 +961,7 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         # And dedupe it into it's final form
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_cluster
@@ -750,13 +970,13 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         ## Creates a map between each branch and the system they belong to
         $query = "
         CREATE OR REPLACE VIEW $stagingTablePrefix"."_branch_system
         AS
         -- Mapping branches to the parent_cluster
-        SELECT 
+        SELECT
         final_branch.id \"fid\",cluster.parent_cluster \"cid\"
         FROM
         $stagingTablePrefix"."_branch_cluster branch_cluster,
@@ -778,7 +998,7 @@ sub createDatabase
         cluster.id \"cid\",
         cluster.name as \"cname\",
         cluster.type as \"ctype\"
-        from 
+        from
         $stagingTablePrefix"."_branch_cluster branch_cluster,
         $stagingTablePrefix"."_branch_name_final branch_final,
         $stagingTablePrefix"."_cluster cluster
@@ -794,7 +1014,7 @@ sub createDatabase
         cluster.id \"cid\",
         cluster.name as \"cname\",
         cluster.type as \"ctype\"
-        from 
+        from
         $stagingTablePrefix"."_branch_system branch_system,
         $stagingTablePrefix"."_branch_name_final branch_final,
         $stagingTablePrefix"."_cluster cluster
@@ -819,7 +1039,7 @@ sub createDatabase
          ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         $query = "
         CREATE VIEW $stagingTablePrefix"."_same_branch_normal_name_expanded
         AS
@@ -860,11 +1080,11 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         $query = "
         CREATE VIEW $stagingTablePrefix"."_agency_owning_cluster
         AS
-        SELECT DISTINCT 
+        SELECT DISTINCT
         branch.shortname as \"shortname\",
         branch_cluster.cid as\"cid\",
         branch_cluster.cname as \"cname\"
@@ -897,7 +1117,7 @@ sub createDatabase
                         NEW.borrow_date
                         );
             END;
-        
+
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
@@ -914,11 +1134,11 @@ sub createDatabase
                         NEW.borrow_date
                         );
             END;
-        
+
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
         $query = "
          CREATE TRIGGER $stagingTablePrefix"."_branch_institution_normal_update BEFORE UPDATE ON $stagingTablePrefix"."_branch
             FOR EACH ROW
@@ -938,7 +1158,23 @@ sub createDatabase
         ";
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
-        
+
+        ##################
+        # INDEXES
+        ##################
+
+        $query = "CREATE INDEX matchkey ON $stagingTablePrefix"."_bnl_stage(match_key);";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "CREATE INDEX matchkey ON $stagingTablePrefix"."_bnl(match_key);";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
+        $query = "ALTER TABLE $stagingTablePrefix"."_bnl ADD INDEX borrow_date_index (borrow_date);";
+        $log->addLine($query) if $debug;
+        $dbHandler->update($query);
+
         ##############
         # Decided not to completely remove the word library from the data. Just normalize it with the proceedures above
         # But in case we decide we want to - these triggers will cause the word "library" to be outlawed from the names everywhere
@@ -979,8 +1215,8 @@ sub createDatabase
         seedDB($dbSeed) if $dbSeed;
 
         ## Hard coding the cluster parents (sorry)
-        $query = 
-        "UPDATE 
+        $query =
+        "UPDATE
         $stagingTablePrefix"."_cluster maincluster,
         $stagingTablePrefix"."_cluster mobiuscluster
         SET
@@ -994,8 +1230,8 @@ sub createDatabase
         $log->addLine($query) if $debug;
         $dbHandler->update($query);
 
-        $query = 
-        "UPDATE 
+        $query =
+        "UPDATE
         $stagingTablePrefix"."_cluster maincluster,
         $stagingTablePrefix"."_cluster mobiuscluster
         SET
@@ -1079,7 +1315,7 @@ sub seedDB
         elsif($currTable)
         {
             $log->addLine($line);
-            
+
             my @vals = split(/["'],["']/,$line);
             $log->addLine("Split and got\n".Dumper(\@vals)) if $debug;
             $log->addLine("Expecting $#cols and got $#vals") if $debug;
@@ -1129,8 +1365,8 @@ sub figureColumnsFromTable
     my @ret = ();
     ## hard coding the removal of the parent_cluster column - a recursive column onto itself. Seed data can't deal with that
     my $query = "
-        SELECT COLUMN_NAME 
-        FROM 
+        SELECT COLUMN_NAME
+        FROM
         INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA='$databaseName'
         AND TABLE_NAME='$stagingTablePrefix".'_'."$table'
@@ -1160,7 +1396,7 @@ sub dirtrav
 	opendir(DIR,"$pwd") or die "Cannot open $pwd\n";
 	my @thisdir = readdir(DIR);
 	closedir(DIR);
-	foreach my $file (@thisdir) 
+	foreach my $file (@thisdir)
 	{
 		if(($file ne ".") and ($file ne ".."))
 		{
@@ -1170,8 +1406,8 @@ sub dirtrav
 				@files = @{dirtrav(\@files,"$pwd/$file")};
 			}
 			elsif (-f "$pwd/$file")
-			{			
-				push(@files, "$pwd/$file");			
+			{
+				push(@files, "$pwd/$file");
 			}
 		}
 	}

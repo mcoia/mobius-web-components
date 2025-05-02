@@ -267,6 +267,11 @@ class BNLService extends ControllerBase {
       }
 
       $totalRows += $gotmore;
+# if we didn't receive a full chunk of data, then we don't need to go back to the database for more.
+      if ($gotmore < $chunk)
+      {
+        $gotmore = 0;
+      }
       unset($rows);
       unset($result);
       $offset += $chunk;
@@ -286,7 +291,7 @@ class BNLService extends ControllerBase {
     $totalRows = 0;
     while ($gotmore > 0) {
       $columns = "";
-      $vals = [$startDate, $endDate];
+      $vals = [$startDate, $endDate, $startDate, $endDate];
       $replacements = [
         "lent" => [
           "!!!type!!!" => "lent",
@@ -341,6 +346,7 @@ class BNLService extends ControllerBase {
                 mobius_bnl_branch_system branch_system
                 WHERE
                 branch_system.fid=bnl.!!!total_lib_var!!! AND
+                bnl.borrow_date between str_to_date( concat(?,'-01') ,'%Y-%m-%d') and str_to_date( concat(?,'-01') ,'%Y-%m-%d') AND
                 bnl.quantity > 0
                 GROUP BY 1,2
                 ORDER BY 1
@@ -375,6 +381,8 @@ class BNLService extends ControllerBase {
         UNION ALL
         $columns";
 
+      $vals[] = $startDate;
+      $vals[] = $endDate;
       $vals[] = $startDate;
       $vals[] = $endDate;
       $fromClause = $this->mobius_bnl_get_bnl_base_branches_from_clause($fromClauseStart, $vals, $branchSelections, 1);
@@ -429,6 +437,11 @@ class BNLService extends ControllerBase {
 
       //      $gotmore = $result->rowCount();
       $totalRows += $gotmore;
+# if we didn't receive a full chunk of data, then we don't need to go back to the database for more.
+      if ($gotmore < $chunk)
+      {
+        $gotmore = 0;
+      }
       unset($rows);
       unset($result);
       $offset += $chunk;
