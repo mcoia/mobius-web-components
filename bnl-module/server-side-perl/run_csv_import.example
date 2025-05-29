@@ -1,0 +1,11 @@
+#!/bin/bash
+
+
+./bnl_import.pl \
+--log /tmp/bnl_log.log \
+--drupal-config /var/www/webroot/web/sites/default/settings.php \
+--debug \
+--specificCluster CLUSTERNAME \
+--csv import.csv
+
+

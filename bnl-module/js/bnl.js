@@ -111,9 +111,14 @@ jQuery(document).ready(function () {
       }).done(function () {
         jQuery(bnl_panel_dom).removeClass('loader');
         jQuery(bnl_panel_dom).html(saveHTML);
-        jQuery("#filter_switcher_button").click(function () {
-          filter_show_hide();
-        }); //wire up the clickable basic/advanced filter trigger
+        // Go get the last refresh date
+        jQuery.get("borrowing_n_lending_get?get_data_last_refresh=1", function(ob)
+        {
+            jQuery("#bnl_last_refresh_date").html(ob.last);
+        });
+        // jQuery("#filter_switcher_button").click(function () {
+        //  filter_show_hide();
+        // }); //wire up the clickable basic/advanced filter trigger
 
         // fill in the date ranges available in the data
         jQuery.get("borrowing_n_lending_get?get_data_date_range=1", function (data) {

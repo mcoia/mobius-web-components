@@ -58,6 +58,7 @@
 
 .bnl_filter_switcher_container {
   width: 100%;
+  display: none;
 }
 
 .bnl_basic_filter_container {
@@ -375,4 +376,14 @@ ul, ol, dd, dl, p, figure, pre, table, hr, form, fieldset {
 
 .ui-state-default, .ui-widget-content .ui-state-default, .ui-widget-header .ui-state-default, .ui-button, html .ui-button.ui-state-disabled:hover, html .ui-button.ui-state-disabled:active {
   border: 0px;
+}
+
+#bnl_last_refresh_date_wrapper {
+  font-size: 10pt;
+}
+
+#bnl_last_refresh_date {
+  color: #0099a8;
+  font-size: 12pt;
+  font-weight: bold;
 }

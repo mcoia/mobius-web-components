@@ -54,7 +54,23 @@ class BNLService extends ControllerBase {
           $this->mobius_bnl_get_data_date_ranges($data_array);
           return new JsonResponse($data_array);
         }
+        else {
+          if (isset($_GET['get_data_last_refresh'])) {
+            $this->mobius_bnl_get_last_refresh_date($data_array);
+            return new JsonResponse($data_array);
+          }
+        }
       }
+    }
+
+  }
+
+  public function mobius_bnl_get_last_refresh_date(&$data_array) {
+    $database = \Drupal::database();
+    $query = $database->query("SELECT DATE_FORMAT(MAX(insert_time), '%m-%d-%Y %h:%i %p') \"last\" FROM mobius_bnl_bnl limit 1");
+
+    while ($libraryRow = $query->fetchAssoc()) {
+      $data_array["last"] = $libraryRow["last"];
     }
 
   }

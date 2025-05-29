@@ -164,9 +164,9 @@ sub processCSV
     (
         owning_lib => 4,
         borrowing_lib => 1,
-        prev_status => 10,
-        status => 11,
-        date => 18,
+        prev_status => 11,
+        status => 12,
+        date => 19,
     );
     my %fullData = ();
     my @disqualifyingStatusValues = ('NO_ITEMS_SELECTABLE_AT_ANY_AGENCY');
@@ -230,7 +230,7 @@ sub processCSV
             else
             {
                 # Warning to be displayed
-                warn "Line could not be parsed: $line\n";
+                warn "Line could not be parsed (bad date): $line\n";
                 $nonParsed++;
             }
         }
@@ -250,8 +250,8 @@ sub processCSV
     # Spidered the table - now saving it to storage
     my $randomHash = $bnlServer->generateRandomString(12);
     my @vals = ();
-    my $query = "truncate $stagingTablePrefix"."_bnl_stage";
-    $bnlServer->doUpdateQuery($query,"TRUNCATING $stagingTablePrefix"."_bnl_stage",\@vals);
+    # my $query = "truncate $stagingTablePrefix"."_bnl_stage";
+    # $bnlServer->doUpdateQuery($query,"TRUNCATING $stagingTablePrefix"."_bnl_stage",\@vals);
     my $query = "INSERT INTO 
     $stagingTablePrefix"."_bnl_stage
     (working_hash,owning_lib,borrowing_lib,quantity,borrow_date)
@@ -272,6 +272,16 @@ sub processCSV
     }
     $query = substr($query,0,-2);
     $bnlServer->doUpdateQuery($query,"INSERTING $stagingTablePrefix"."_bnl_stage",\@vals);
+
+    # We're going delete any data for current month, because it's a partial month of data
+    @vals = ();
+    $query="
+    DELETE FROM
+    $stagingTablePrefix"."_bnl_stage stage
+    WHERE
+    borrow_date = CONCAT(DATE_FORMAT(CURRENT_DATE(),'%Y-%m'),'-01')
+    ";
+    $bnlServer->doUpdateQuery($query,"Removing current month data $stagingTablePrefix"."_bnl_stage",\@vals);
 
     # We're going to deviate from the usual, and translate the library names to their name from the maps
     $query="
@@ -334,7 +344,9 @@ sub extractDateFromLongForm
 {
     # 2025-03-31T21:05:50.067798Z
     my $date = shift;
+    print $date . "\n" if $debug;
     $date =~ s/^(\d{4})\-(\d{2})\-(\d{2}).*/$1-$2-01/g;
+    print $date . "\n" if $debug;
     return $date;
 }
 
