@@ -30,24 +30,42 @@ class IASHRLabel extends AbstractLabel {
   public function DrawShipTO(): void {
 
     $this->labelMaker->SetFont('Arial', 'B', 8);
+    $Y = 180;
+    $YInc = 13;
 
     // Location Name + Location Code
     $this->labelMaker->Text(
       $this->SetX(110),
-      $this->SetY(180),
+      $this->SetY($Y),
       $this->ShipTO->locName . ' ' . '(' . $this->ShipTO->locCode . ')');
+
+    // Down a line
+    $Y += $YInc;
+
+    // OCLC Symbol (if exists)
+    if($this->ShipTO->oclcSymbol && strcmp( trim($this->ShipTO->oclcSymbol), '') != 0) {
+      $this->labelMaker->Text(
+        $this->SetX(110),
+        $this->SetY($Y),
+        'OCLC: ' . $this->ShipTO->oclcSymbol);
+
+        // Down a line
+        $Y += $YInc;
+    }
 
     // Street address
     $this->labelMaker->Text(
       $this->SetX(110),
-      $this->SetY(193),
+      $this->SetY($Y),
       $this->ShipTO->address1);
 
+    // Down a line
+    $Y += $YInc;
 
     // City State zip
     $this->labelMaker->Text(
       $this->SetX(110),
-      $this->SetY(206),
+      $this->SetY($Y),
       $this->ShipTO->city . ', ' .
       $this->ShipTO->state . ' ' .
       $this->ShipTO->zip);

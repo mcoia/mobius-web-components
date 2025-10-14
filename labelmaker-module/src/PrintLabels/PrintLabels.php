@@ -39,6 +39,7 @@ $labelRegistry = [
   "MALA" => new MALALabel(),
   "MOB" => new MOBLabel(),
   "TAE" => new TAELabel(),
+  "KLE" => new KLELabel(),
 
   // Add Custom Labels Below
 

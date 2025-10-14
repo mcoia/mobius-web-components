@@ -48,27 +48,30 @@ class LabelMakerController extends ControllerBase {
     /* Loop over our Institution list and build the <option> elements. */
     foreach ($InstitutionListDecodedJSON as $institution) {
 
-      $html = $html . "<option ";
+      $thisOption = "<option ";
 
       $institutionID = $institution["id"];
       $name = $institution["locName"];
-      $permittedTo = $institution["permittedTo"];
-      $interSort = $institution["interSort"];
-      if (!$institution["is_stop"]) {
-        $name .= " (Delivers to " . $institution["address1"];
+      $permittedTo = str_replace("'", "", $institution["permittedTo"]);
+      $interSort = str_replace("'", "", $institution["interSort"]);
+      $locCode = str_replace("'", "", $institution["locCode"]);
+      $state = str_replace("'", "", $institution["state"]);
+      $oclcSymbol = str_replace("'", "", $institution["oclcSymbol"]);
+
+      // The dropdown name pattern is:
+      // locName (state) (oclcSymbol)
+      // But only if the state exists and the oclcSymbol exists, omit otherwise
+
+      if($state && strcmp( trim($state), '') != 0) {
+        $name .= " ($state)";
       }
-      else {
-        $name .= " (" . $institution["state"] . ": " . $institution['locCode'];
+      if($oclcSymbol && strcmp( trim($oclcSymbol), '') != 0) {
+        $name .= " ($oclcSymbol)";
+      }
+      if($locCode && strcmp( trim($locCode), '') != 0) {
+        $name .= " ($locCode)";
       }
 
-      // Uncomment this if MCDAC wants to see OCLC symbols in there
-      if ($institution["oclcSymbol"]) {
-        $name .= " OCLC: " . $institution["oclcSymbol"] . ")";
-      }
-      else {
-        $name .= ")";
-      }
-      $state = $institution["state"];
 
       // Set our FROM in our dropdown based off our cookie value - check to see if the mco_last_from_id cookie equals this node id
       //      if ($list_label == "FROM" && $mco_last_from_id == $institutionID) {
@@ -76,12 +79,13 @@ class LabelMakerController extends ControllerBase {
 //        $html = $html . " selected ";
 //      }
 
-      $html = $html . "data-permitted-to='$permittedTo' ";
-      $html = $html . "data-intersort='$interSort' ";
+      $thisOption = $thisOption . "data-permitted-to='$permittedTo' ";
+      $thisOption = $thisOption . "data-intersort='$interSort' ";
+      $thisOption = $thisOption . "value='" . Json::encode($institution) . "' ";
+      $thisOption = $thisOption . "class='$state'";
+      $thisOption = $thisOption . ">$name</option>\n";
 
-      $jsonInstitution = Json::encode($institution);
-
-      $html = $html . "value='$jsonInstitution' class='$state'>$name</option>\n";
+      $html = $html . $thisOption;
     }
 
     #end the select list

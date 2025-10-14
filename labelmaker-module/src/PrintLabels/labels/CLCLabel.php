@@ -31,12 +31,31 @@ class CLCLabel extends AbstractLabel {
   public function DrawShipTO(): void {
 
     $this->labelMaker->SetFont('Arial', 'B', 8);
+    $Y = 170;
+    $YInc = 15;
 
     // Location Name + Location Code
     $this->labelMaker->Text(
       $this->SetX(110),
-      $this->SetY(170),
+      $this->SetY($Y),
       $this->ShipTO->locName . ' ' . '(' . $this->ShipTO->locCode . ')');
+
+    // Down a line
+    $Y += $YInc;
+
+    // OCLC Symbol (if exists)
+    if($this->ShipTO->oclcSymbol && strcmp( trim($this->ShipTO->oclcSymbol), '') != 0) {
+      $this->labelMaker->Text(
+        $this->SetX(110),
+        $this->SetY($Y),
+        'OCLC: ' . $this->ShipTO->oclcSymbol);
+
+        // Down a line
+        $Y += $YInc;
+    }
+
+    // Down a line
+    $Y += $YInc;
 
     /*
        This portion has been taken out by request.
@@ -44,7 +63,7 @@ class CLCLabel extends AbstractLabel {
      // Below Name - it's a stat code + the uuid ??? that's a little weird
      $this->labelMaker->Text(
        $this->GetX(110),
-       $this->GetY(185),
+       $this->GetY($Y),
        $this->ShipTO->city . ', ' . $this->ShipTO->state);
 
     */

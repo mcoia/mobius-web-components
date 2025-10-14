@@ -1,6 +1,6 @@
 <?php
 
-class MALALabel extends AbstractLabel {
+class KLELabel extends AbstractLabel {
 
   public function DrawShipFROM(): void {
 
@@ -12,6 +12,13 @@ class MALALabel extends AbstractLabel {
       $this->SetY(18),
       "FROM: " . $this->ShipFROM->locCode);
 
+      // KLE centered title:
+      $this->labelMaker->SetFont('Arial', 'B', 22);
+      $this->labelMaker->Text(
+        $this->SetX(175),
+        $this->SetY(25),
+        "KLE");
+  
     $this->labelMaker->SetFont('Arial', '', 8);
 
     // under FROM:
