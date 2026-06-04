@@ -166,10 +166,10 @@ sub processCSV
         borrowing_lib => 1,
         prev_status => 11,
         status => 12,
+        error_message => 14,
         date => 19,
     );
     my %fullData = ();
-    my @disqualifyingStatusValues = ('NO_ITEMS_SELECTABLE_AT_ANY_AGENCY');
     my @dates = ();
 
     # Reading the file
@@ -188,14 +188,16 @@ sub processCSV
             # print Dumper(\@csvRowValues);
             my $skipRow = 0;
 
-            foreach(@disqualifyingStatusValues)
-            {
-                $skipRow = 1 if (@csvRowValues[$columnDefs{'status'}] eq $_);
-            }
+            # The previous status needs to be "COMPLETED" and the error message needs to be blank
+            # print 'ignored: "'.@csvRowValues[$columnDefs{'prev_status'}]."\"\n" if (@csvRowValues[$columnDefs{'prev_status'}] ne 'COMPLETED' && $debug);
+            $skipRow = 1 if (@csvRowValues[$columnDefs{'prev_status'}] ne 'COMPLETED');
+            # print 'ignored2: "'.@csvRowValues[$columnDefs{'error_message'}]."\"\n" if (!$skipRow && @csvRowValues[$columnDefs{'error_message'}] ne '' && $debug);
+            $skipRow = 1 if (@csvRowValues[$columnDefs{'error_message'}] ne '');
+            
             # Header row detected
             $skipRow = 1 if ( lc @csvRowValues[0] eq 'date created');
 
-            print "Skpping row: $rowCount\n" if ($skipRow && $debug);
+            print "Including row: $rowCount\n" if (!$skipRow && $debug);
             next if $skipRow;
             my $thisDate = extractDateFromLongForm(@csvRowValues[$columnDefs{'date'}]);
             if( $thisDate =~ /\d{4}\-\d{2}\-\d{2}/ )

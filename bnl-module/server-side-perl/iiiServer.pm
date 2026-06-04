@@ -140,7 +140,20 @@ sub collectReportData
     }
     $query = substr($query,0,-2);
     doUpdateQuery($self,$query,"INSERTING $self->{prefix}"."_bnl_stage",\@vals);
-    
+    processStagingTable($self, $randomHash);
+
+    undef $borrowingMap;
+    undef @vals;
+    undef $query;
+    return $randomHash;
+}
+
+sub processStagingTable
+{
+    my ($self) = shift;
+    my $randomHash = shift;
+    my @vals = ();
+
     # now we need to create a branch for any potiential new branches/institutions
     my $query = "INSERT INTO $self->{prefix}"."_branch
     (cluster,institution,shortname)
@@ -266,11 +279,9 @@ sub collectReportData
     ";
     @vals = ($randomHash);
     doUpdateQuery($self,$query,"Cleaning Staging $self->{prefix}"."_bnl_stage",\@vals);
-    
-    undef $borrowingMap;
+
     undef $query;
     undef @vals;
-    return $randomHash;
 }
 
 sub normalizeNames
@@ -483,8 +494,8 @@ sub cleanDuplicates
     ";
     doUpdateQuery($self,$query,"DELETE 6/9 onto itself (owning) $self->{prefix}"."_bnl",\@vals);
 
-     ## Delete entries that are already accounted for in the sierra entries
-     my $queryTemplate = "
+    ## Delete entries that are already accounted for in the sierra entries
+    my $queryTemplate = "
     DELETE bnl FROM
         $self->{prefix}"."_bnl bnl,
         (
@@ -551,7 +562,7 @@ sub cleanDuplicates
     WHERE
     alll.bnl_cluster2_id=bnl.id AND
     cid!=bnl.owning_cluster
-     ";
+    ";
     $query = "SELECT id,name FROM $self->{prefix}"."_cluster ORDER BY id";
     my @results = @{$self->{dbHandler}->query($query)};
     my @cids = ();
