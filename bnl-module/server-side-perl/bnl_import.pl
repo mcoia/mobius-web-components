@@ -162,42 +162,49 @@ sub processCSV
     my $csv = Text::CSV->new(); #{ allow_whitespace => 1 }
     my %columnDefs =
     (
-        owning_lib => 4,
-        borrowing_lib => 1,
-        prev_status => 11,
-        status => 12,
-        error_message => 14,
-        date => 19,
+        owning_lib => 1,
+        borrowing_lib => 0,
+        prev_status => 12,
+        status => 13,
+        error_message => 15,
+        date => 20,
     );
     my %fullData = ();
     my @dates = ();
 
     # Reading the file
-    open(my $dataStream, '<', $csvFile) or die;
+    my $csv = Text::CSV->new ({ binary => 1, auto_diag => 1 });
+    # open(my $dataStream, '<:encoding(utf8)', $csvFile) or die $!;
     my $rowCount = 0;
     my $nonParsed = 0;
-    while (my $line = <$dataStream>)
+    open my $fh, "<:encoding(utf8)", $csvFile or die " $!";
+    while (my $row = $csv->getline ($fh))
     {
-        chomp $line;
+    # Saving the old way, in case they change the file format again
+    # This while loop is used in conjunction with the commented out "if..else" statement below
+    # while (my $line = <$dataStream>)
+    # {
+    #   chomp $line;
         $rowCount++;
 
         # Parsing the line
-        if ($csv->parse(normalizeText($line)))
-        {
-            my @csvRowValues = $csv->fields();
-            # print Dumper(\@csvRowValues);
-            my $skipRow = 0;
 
+        # if ($csv->parse(normalizeText($line)))
+        # {
+            # my @csvRowValues = $csv->fields();
+            my @csvRowValues = @{$row};
+            my $skipRow = 0;
             # The previous status needs to be "COMPLETED" and the error message needs to be blank
-            # print 'ignored: "'.@csvRowValues[$columnDefs{'prev_status'}]."\"\n" if (@csvRowValues[$columnDefs{'prev_status'}] ne 'COMPLETED' && $debug);
-            $skipRow = 1 if (@csvRowValues[$columnDefs{'prev_status'}] ne 'COMPLETED');
-            # print 'ignored2: "'.@csvRowValues[$columnDefs{'error_message'}]."\"\n" if (!$skipRow && @csvRowValues[$columnDefs{'error_message'}] ne '' && $debug);
+            $skipRow = 1 if ( !( (lc @csvRowValues[$columnDefs{'prev_status'}]) =~ m/complete/));
             $skipRow = 1 if (@csvRowValues[$columnDefs{'error_message'}] ne '');
-            
+
             # Header row detected
-            $skipRow = 1 if ( lc @csvRowValues[0] eq 'date created');
+            $skipRow = 1 if ( lc @csvRowValues[0] eq 'Patron library');
 
             print "Including row: $rowCount\n" if (!$skipRow && $debug);
+            print @csvRowValues[$columnDefs{'prev_status'}] . "\n" if (!$skipRow && $debug);
+            print @csvRowValues[$columnDefs{'error_message'}] . "\n" if (!$skipRow && $debug);
+
             next if $skipRow;
             my $thisDate = extractDateFromLongForm(@csvRowValues[$columnDefs{'date'}]);
             if( $thisDate =~ /\d{4}\-\d{2}\-\d{2}/ )
@@ -235,13 +242,13 @@ sub processCSV
                 warn "Line could not be parsed (bad date): $line\n";
                 $nonParsed++;
             }
-        }
-        else
-        {
-            # Warning to be displayed
-            warn "Line could not be parsed: $line\n";
-            $nonParsed++;
-        }
+	# }
+	# else
+	# {
+	   # # Warning to be displayed
+	   # warn "Line could not be parsed\n";
+	   # $nonParsed++;
+	# }
     }
     $log->addLine(Dumper(\%fullData));
     
@@ -347,7 +354,12 @@ sub extractDateFromLongForm
     # 2025-03-31T21:05:50.067798Z
     my $date = shift;
     print $date . "\n" if $debug;
-    $date =~ s/^(\d{4})\-(\d{2})\-(\d{2}).*/$1-$2-01/g;
+    # The old way
+    # $date =~ s/^(\d{4})\-(\d{2})\-(\d{2}).*/$1-$2-01/g;
+    my ($month, $day, $year) = $date =~ /^(\d{1,2})\/(\d{1,2})\/(\d{4}).*/;
+    $month = '0' . $month if(length($month) == 1);
+
+    $date = "$year-$month-01";
     print $date . "\n" if $debug;
     return $date;
 }
@@ -357,9 +369,14 @@ sub normalizeText
     my $data = shift;
     $data = NFD($data);
     $data =~ s/[\x{80}-\x{ffff}]//go;
+    # remove square brackets
+    # $data =~ s/[\/]/\-/go;
     # $data =~ s/\W+$//go;
     # $data =~ s/\s//go;
     # $data =~ s/\t//go;
+    # print $data . "\n";
+    # exit;
+
     return $data;
 }
 
