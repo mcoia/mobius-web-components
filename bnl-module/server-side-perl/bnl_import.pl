@@ -173,7 +173,7 @@ sub processCSV
     my @dates = ();
 
     # Reading the file
-    my $csv = Text::CSV->new ({ binary => 1, auto_diag => 1 });
+    my $csv = Text::CSV->new ({ binary => 1, auto_diag => 1, sep_char => '\t' });
     # open(my $dataStream, '<:encoding(utf8)', $csvFile) or die $!;
     my $rowCount = 0;
     my $nonParsed = 0;
