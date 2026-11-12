@@ -173,8 +173,8 @@ sub processCSV
     my @dates = ();
 
     # Reading the file
-    my $csv = Text::CSV->new ({ binary => 1, auto_diag => 1, sep_char => '\t' });
-    # open(my $dataStream, '<:encoding(utf8)', $csvFile) or die $!;
+    my $csv = Text::CSV->new ({ binary => 1, auto_diag => 1, sep_char => "\t" });
+    #open(my $dataStream, '<:encoding(utf8)', $csvFile) or die $!;
     my $rowCount = 0;
     my $nonParsed = 0;
     open my $fh, "<:encoding(utf8)", $csvFile or die " $!";
@@ -356,7 +356,7 @@ sub extractDateFromLongForm
     print $date . "\n" if $debug;
     # The old way
     # $date =~ s/^(\d{4})\-(\d{2})\-(\d{2}).*/$1-$2-01/g;
-    my ($month, $day, $year) = $date =~ /^(\d{1,2})\/(\d{1,2})\/(\d{4}).*/;
+    my ($year, $month, $day) = $date =~ /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2}).*/;
     $month = '0' . $month if(length($month) == 1);
 
     $date = "$year-$month-01";
